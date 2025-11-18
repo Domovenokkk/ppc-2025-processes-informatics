@@ -11,21 +11,21 @@
 
 namespace rychkova_d_sum_matrix_columns {
 
-RychkovaDSumMatrixColumnsMPI::RychkovaDSumMatrixColumnsMPI(const InType& in) {
+RychkovaDSumMatrixColumnsMPI::RychkovaDSumMatrixColumnsMPI(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
   GetOutput() = OutType{};
 }
 
 bool RychkovaDSumMatrixColumnsMPI::ValidationImpl() {
-  const auto& input = GetInput();
+  const auto &input = GetInput();
 
   if (input.empty()) {
     return true;
   }
 
   size_t cols = input[0].size();
-  for (const auto& row : input) {
+  for (const auto &row : input) {
     if (row.size() != cols) {
       return false;
     }
@@ -35,7 +35,7 @@ bool RychkovaDSumMatrixColumnsMPI::ValidationImpl() {
 }
 
 bool RychkovaDSumMatrixColumnsMPI::PreProcessingImpl() {
-  const auto& input = GetInput();
+  const auto &input = GetInput();
 
   if (input.empty()) {
     GetOutput() = std::vector<int>{};
@@ -47,8 +47,8 @@ bool RychkovaDSumMatrixColumnsMPI::PreProcessingImpl() {
 }
 
 bool RychkovaDSumMatrixColumnsMPI::RunImpl() {
-  const auto& input = GetInput();
-  auto& output = GetOutput();
+  const auto &input = GetInput();
+  auto &output = GetOutput();
 
   if (input.empty()) {
     return true;

@@ -7,21 +7,21 @@
 
 namespace rychkova_d_sum_matrix_columns {
 
-RychkovaDSumMatrixColumnsSEQ::RychkovaDSumMatrixColumnsSEQ(const InType& in) {
+RychkovaDSumMatrixColumnsSEQ::RychkovaDSumMatrixColumnsSEQ(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
   GetOutput() = OutType{};
 }
 
 bool RychkovaDSumMatrixColumnsSEQ::ValidationImpl() {
-  const auto& input = GetInput();
+  const auto &input = GetInput();
 
   if (input.empty()) {
     return true;
   }
 
   size_t cols = input[0].size();
-  for (const auto& row : input) {
+  for (const auto &row : input) {
     if (row.size() != cols) {
       return false;
     }
@@ -31,7 +31,7 @@ bool RychkovaDSumMatrixColumnsSEQ::ValidationImpl() {
 }
 
 bool RychkovaDSumMatrixColumnsSEQ::PreProcessingImpl() {
-  const auto& input = GetInput();
+  const auto &input = GetInput();
 
   if (input.empty()) {
     GetOutput().clear();
@@ -44,8 +44,8 @@ bool RychkovaDSumMatrixColumnsSEQ::PreProcessingImpl() {
 }
 
 bool RychkovaDSumMatrixColumnsSEQ::RunImpl() {
-  const auto& input = GetInput();
-  auto& output = GetOutput();
+  const auto &input = GetInput();
+  auto &output = GetOutput();
 
   if (input.empty()) {
     return true;
@@ -55,7 +55,7 @@ bool RychkovaDSumMatrixColumnsSEQ::RunImpl() {
     output.assign(input[0].size(), 0);
   }
 
-  for (const auto& row : input) {
+  for (const auto &row : input) {
     for (size_t j = 0; j < row.size(); ++j) {
       output[j] += row[j];
     }

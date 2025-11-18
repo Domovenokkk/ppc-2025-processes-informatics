@@ -9,7 +9,7 @@ namespace rychkova_d_sum_matrix_columns {
 
 class RychkovaRunPerfTestMatrixColumns : public ppc::util::BaseRunPerfTests<InType, OutType> {
   const size_t kMatrixSize_ = 100;
-  
+
   InType input_matrix_{};
 
   void SetUp() override {
@@ -36,7 +36,8 @@ TEST_P(RychkovaRunPerfTestMatrixColumns, RunPerfModes) {
 }
 
 const auto kAllPerfTasks =
-    ppc::util::MakeAllPerfTasks<InType, RychkovaDSumMatrixColumnsMPI, RychkovaDSumMatrixColumnsSEQ>(PPC_SETTINGS_rychkova_d_sum_matrix_columns);
+    ppc::util::MakeAllPerfTasks<InType, RychkovaDSumMatrixColumnsMPI, RychkovaDSumMatrixColumnsSEQ>(
+        PPC_SETTINGS_rychkova_d_sum_matrix_columns);
 
 const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
 
