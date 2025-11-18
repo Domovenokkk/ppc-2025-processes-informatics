@@ -7,7 +7,7 @@
 
 namespace rychkova_d_sum_matrix_columns {
 
-RychkovaDSumMatrixColumnsSEQ::RychkovaDSumMatrixColumnsSEQ(const InType& in) {
+RychkovaDSumMatrixColumnsSEQ::RychkovaDSumMatrixColumnsSEQ(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput().resize(in.size());
   for (size_t i = 0; i < in.size(); ++i) {
