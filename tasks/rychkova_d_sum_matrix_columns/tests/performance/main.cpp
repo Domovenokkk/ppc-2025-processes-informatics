@@ -10,7 +10,7 @@
 namespace rychkova_d_sum_matrix_columns {
 
 class RychkovaRunPerfTestMatrixColumns : public ppc::util::BaseRunPerfTests<InType, OutType> {
-  const size_t kMatrixSize_ = 20;
+  const size_t kMatrixSize_ = 1000;
 
   InType input_matrix_;
 
