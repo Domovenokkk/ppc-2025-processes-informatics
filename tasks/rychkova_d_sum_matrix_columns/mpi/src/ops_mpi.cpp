@@ -11,9 +11,12 @@
 
 namespace rychkova_d_sum_matrix_columns {
 
-RychkovaDSumMatrixColumnsMPI::RychkovaDSumMatrixColumnsMPI(const InType &in) {
+RychkovaDSumMatrixColumnsMPI::RychkovaDSumMatrixColumnsMPI(const InType& in) {
   SetTypeOfTask(GetStaticTypeOfTask());
-  GetInput() = in;
+  GetInput().resize(in.size());
+  for (size_t i = 0; i < in.size(); ++i) {
+    GetInput()[i] = in[i];
+  }
   GetOutput() = OutType{};
 }
 
