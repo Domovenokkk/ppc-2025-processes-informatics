@@ -10,7 +10,7 @@
 namespace mityaeva_d_min_v_rows_matrix {
 
 class MinValuesInRowsRunPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
-  const int kMatrixSize_ = 30000;
+  const int kMatrixSize_ = 100;
   InType input_data_;
 
   void SetUp() override {

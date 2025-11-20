@@ -2,6 +2,7 @@
 
 #include <mpi.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <vector>
 
@@ -30,11 +31,7 @@ bool MinValuesInRowsMPI::ValidationImpl() {
   }
 
   size_t expected_size = 2 + (static_cast<size_t>(rows) * static_cast<size_t>(cols));
-  if (input.size() != expected_size) {
-    return false;
-  }
-
-  return true;
+  return input.size() == expected_size;
 }
 
 bool MinValuesInRowsMPI::PreProcessingImpl() {
@@ -57,9 +54,7 @@ std::vector<int> ProcessLocalRows(const std::vector<int> &input, int start_row, 
     int min_val = input[row_start_index];
     for (int j = 1; j < cols; ++j) {
       int current_val = input[row_start_index + j];
-      if (current_val < min_val) {
-        min_val = current_val;
-      }
+      min_val = std::min(current_val, min_val);
     }
     local_result.push_back(min_val);
   }
