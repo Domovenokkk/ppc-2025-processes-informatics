@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <cstddef>
+
 #include "mityaeva_d_min_v_rows_matrix/common/include/common.hpp"
 #include "mityaeva_d_min_v_rows_matrix/mpi/include/ops_mpi.hpp"
 #include "mityaeva_d_min_v_rows_matrix/seq/include/ops_seq.hpp"
@@ -8,7 +10,7 @@
 namespace mityaeva_d_min_v_rows_matrix {
 
 class MinValuesInRowsRunPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
-  const int kMatrixSize_ = 1000;
+  const int kMatrixSize_ = 100000;
   InType input_data_{};
 
   void SetUp() override {
@@ -16,14 +18,14 @@ class MinValuesInRowsRunPerfTests : public ppc::util::BaseRunPerfTests<InType, O
     int cols = kMatrixSize_;
 
     input_data_.clear();
-    input_data_.reserve(2 + rows * cols);
+    input_data_.reserve(2 + (rows * cols));
 
     input_data_.push_back(rows);
     input_data_.push_back(cols);
 
     for (int i = 0; i < rows; ++i) {
       for (int j = 0; j < cols; ++j) {
-        input_data_.push_back((i + j) % 1000 + 1);
+        input_data_.push_back(((i + j) % 1000) + 1);
       }
     }
   }

@@ -2,12 +2,10 @@
 
 #include <mpi.h>
 
-#include <algorithm>
-#include <stdexcept>
+#include <cstddef>
 #include <vector>
 
 #include "mityaeva_d_min_v_rows_matrix/common/include/common.hpp"
-#include "util/include/util.hpp"
 
 namespace mityaeva_d_min_v_rows_matrix {
 
@@ -31,7 +29,8 @@ bool MinValuesInRowsMPI::ValidationImpl() {
     return false;
   }
 
-  if (input.size() != static_cast<size_t>(2 + rows * cols)) {
+  size_t expected_size = 2 + static_cast<size_t>(rows) * static_cast<size_t>(cols);
+  if (input.size() != expected_size) {
     return false;
   }
 
@@ -42,11 +41,87 @@ bool MinValuesInRowsMPI::PreProcessingImpl() {
   return true;
 }
 
+std::vector<int> ProcessLocalRows(const std::vector<int> &input, int start_row, int my_rows, int cols) {
+  std::vector<int> local_result;
+  local_result.reserve(my_rows);
+
+  for (int i = 0; i < my_rows; ++i) {
+    int global_row = start_row + i;
+    int row_start_index = 2 + (global_row * cols);
+
+    if (cols == 0) {
+      local_result.push_back(0);
+      continue;
+    }
+
+    int min_val = input[row_start_index];
+    for (int j = 1; j < cols; ++j) {
+      int current_val = input[row_start_index + j];
+      if (current_val < min_val) {
+        min_val = current_val;
+      }
+    }
+    local_result.push_back(min_val);
+  }
+
+  return local_result;
+}
+
+void GatherResults(int rank, int size, int rows, int rows_per_process, int remainder,
+                   const std::vector<int> &local_result, std::vector<int> &output) {
+  if (rank == 0) {
+    std::vector<int> global_result;
+    global_result.reserve(rows);
+
+    global_result.insert(global_result.end(), local_result.begin(), local_result.end());
+
+    for (int src = 1; src < size; ++src) {
+      int src_rows = rows_per_process;
+      if (src < remainder) {
+        src_rows++;
+      }
+
+      if (src_rows > 0) {
+        std::vector<int> recv_buffer(src_rows);
+        MPI_Recv(recv_buffer.data(), src_rows, MPI_INT, src, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        global_result.insert(global_result.end(), recv_buffer.begin(), recv_buffer.end());
+      }
+    }
+
+    output.clear();
+    output.reserve(rows + 1);
+    output.push_back(rows);
+    output.insert(output.end(), global_result.begin(), global_result.end());
+
+    int output_size = static_cast<int>(output.size());
+    for (int dst = 1; dst < size; ++dst) {
+      MPI_Send(output.data(), output_size, MPI_INT, dst, 0, MPI_COMM_WORLD);
+    }
+
+  } else {
+    if (!local_result.empty()) {
+      int local_size = static_cast<int>(local_result.size());
+      MPI_Send(local_result.data(), local_size, MPI_INT, 0, 0, MPI_COMM_WORLD);
+    }
+
+    int result_size = 0;
+    MPI_Status status;
+    MPI_Probe(0, 0, MPI_COMM_WORLD, &status);
+    MPI_Get_count(&status, MPI_INT, &result_size);
+
+    std::vector<int> recv_buffer(result_size);
+    MPI_Recv(recv_buffer.data(), result_size, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+    output = recv_buffer;
+  }
+}
+
 bool MinValuesInRowsMPI::RunImpl() {
   const auto &input = GetInput();
 
   try {
-    int rank, size;
+    int rank = 0;
+    int size = 0;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
@@ -63,75 +138,15 @@ bool MinValuesInRowsMPI::RunImpl() {
 
     int start_row = 0;
     for (int i = 0; i < rank; ++i) {
-      start_row += (rows_per_process + (i < remainder ? 1 : 0));
+      int previous_rows = rows_per_process;
+      if (i < remainder) {
+        previous_rows++;
+      }
+      start_row += previous_rows;
     }
 
-    std::vector<int> local_result;
-    local_result.reserve(my_rows);
-
-    for (int i = 0; i < my_rows; ++i) {
-      int global_row = start_row + i;
-      int row_start_index = 2 + global_row * cols;
-
-      if (cols == 0) {
-        local_result.push_back(0);
-        continue;
-      }
-
-      int min_val = input[row_start_index];
-      for (int j = 1; j < cols; ++j) {
-        if (input[row_start_index + j] < min_val) {
-          min_val = input[row_start_index + j];
-        }
-      }
-      local_result.push_back(min_val);
-    }
-
-    if (rank == 0) {
-      std::vector<int> global_result;
-      global_result.reserve(rows);
-
-      global_result.insert(global_result.end(), local_result.begin(), local_result.end());
-
-      for (int src = 1; src < size; ++src) {
-        int src_rows = rows_per_process;
-        if (src < remainder) {
-          src_rows++;
-        }
-
-        if (src_rows > 0) {
-          std::vector<int> recv_buffer(src_rows);
-          MPI_Recv(recv_buffer.data(), src_rows, MPI_INT, src, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-          global_result.insert(global_result.end(), recv_buffer.begin(), recv_buffer.end());
-        }
-      }
-
-      auto &output = GetOutput();
-      output.clear();
-      output.reserve(rows + 1);
-      output.push_back(rows);
-      output.insert(output.end(), global_result.begin(), global_result.end());
-
-      for (int dst = 1; dst < size; ++dst) {
-        MPI_Send(output.data(), output.size(), MPI_INT, dst, 0, MPI_COMM_WORLD);
-      }
-
-    } else {
-      if (my_rows > 0) {
-        MPI_Send(local_result.data(), my_rows, MPI_INT, 0, 0, MPI_COMM_WORLD);
-      }
-
-      int result_size;
-      MPI_Status status;
-      MPI_Probe(0, 0, MPI_COMM_WORLD, &status);
-      MPI_Get_count(&status, MPI_INT, &result_size);
-
-      std::vector<int> recv_buffer(result_size);
-      MPI_Recv(recv_buffer.data(), result_size, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-      auto &output = GetOutput();
-      output = recv_buffer;
-    }
+    std::vector<int> local_result = ProcessLocalRows(input, start_row, my_rows, cols);
+    GatherResults(rank, size, rows, rows_per_process, remainder, local_result, GetOutput());
 
     MPI_Barrier(MPI_COMM_WORLD);
     return true;

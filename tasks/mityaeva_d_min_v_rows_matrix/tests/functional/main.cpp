@@ -1,14 +1,10 @@
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <array>
 #include <cstddef>
-#include <numeric>
 #include <stdexcept>
 #include <string>
 #include <tuple>
-#include <utility>
-#include <vector>
 
 #include "mityaeva_d_min_v_rows_matrix/common/include/common.hpp"
 #include "mityaeva_d_min_v_rows_matrix/mpi/include/ops_mpi.hpp"
