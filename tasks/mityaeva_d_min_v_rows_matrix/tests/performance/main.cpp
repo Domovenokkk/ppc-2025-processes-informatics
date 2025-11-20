@@ -14,13 +14,13 @@ class MinValuesInRowsRunPerfTests : public ppc::util::BaseRunPerfTests<InType, O
   void SetUp() override {
     int rows = kMatrixSize_;
     int cols = kMatrixSize_;
-
+    
     input_data_.clear();
     input_data_.reserve(2 + rows * cols);
-
+    
     input_data_.push_back(rows);
     input_data_.push_back(cols);
-
+    
     for (int i = 0; i < rows; ++i) {
       for (int j = 0; j < cols; ++j) {
         input_data_.push_back((i + j) % 1000 + 1);
@@ -32,18 +32,18 @@ class MinValuesInRowsRunPerfTests : public ppc::util::BaseRunPerfTests<InType, O
     if (output_data.empty()) {
       return false;
     }
-
+    
     int result_rows = output_data[0];
     if (result_rows <= 0) {
       return false;
     }
-
-    for (int i = 1; i < output_data.size(); ++i) {
+    
+    for (size_t i = 1; i < output_data.size(); ++i) {
       if (output_data[i] < 1 || output_data[i] > 1000) {
         return false;
       }
     }
-
+    
     return true;
   }
 
@@ -56,8 +56,8 @@ TEST_P(MinValuesInRowsRunPerfTests, RunPerfModes) {
   ExecuteTest(GetParam());
 }
 
-const auto kAllPerfTasks = ppc::util::MakeAllPerfTasks<InType, MinValuesInRowsMPI, MinValuesInRowsSEQ>(
-    PPC_SETTINGS_mityaeva_d_min_v_rows_matrix);
+const auto kAllPerfTasks =
+    ppc::util::MakeAllPerfTasks<InType, MinValuesInRowsMPI, MinValuesInRowsSEQ>(PPC_SETTINGS_mityaeva_d_min_v_rows_matrix);
 
 const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
 
