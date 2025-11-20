@@ -19,4 +19,8 @@ class MinValuesInRowsMPI : public BaseTask {
   bool PostProcessingImpl() override;
 };
 
+std::vector<int> ProcessLocalRows(const std::vector<int> &input, int start_row, int my_rows, int cols);
+void GatherResults(int rank, int size, int rows, int rows_per_process, int remainder,
+                   const std::vector<int> &local_result, std::vector<int> &output);
+
 }  // namespace mityaeva_d_min_v_rows_matrix
