@@ -1,6 +1,5 @@
 #include "mityaeva_d_min_v_rows_matrix/seq/include/ops_seq.hpp"
 
-#include <algorithm>
 #include <cstddef>
 #include <vector>
 
@@ -29,7 +28,11 @@ bool MinValuesInRowsSEQ::ValidationImpl() {
   }
 
   size_t expected_size = 2 + (static_cast<size_t>(rows) * static_cast<size_t>(cols));
-  return input.size() == expected_size;
+  if (input.size() != expected_size) {
+    return false;
+  }
+
+  return true;
 }
 
 bool MinValuesInRowsSEQ::PreProcessingImpl() {
@@ -58,7 +61,9 @@ bool MinValuesInRowsSEQ::RunImpl() {
 
       for (int j = 1; j < cols; ++j) {
         int current_val = input[data_index + j];
-        min_val = std::min(current_val, min_val);
+        if (current_val < min_val) {
+          min_val = current_val;
+        }
       }
 
       result.push_back(min_val);
