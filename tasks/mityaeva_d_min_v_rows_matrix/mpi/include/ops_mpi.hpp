@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include "mityaeva_d_min_v_rows_matrix/common/include/common.hpp"
 #include "task/include/task.hpp"
 
