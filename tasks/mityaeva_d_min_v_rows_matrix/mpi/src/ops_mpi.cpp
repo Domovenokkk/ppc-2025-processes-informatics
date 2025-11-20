@@ -112,13 +112,25 @@ bool MinValuesInRowsMPI::RunImpl() {
       output.push_back(rows);
       output.insert(output.end(), global_result.begin(), global_result.end());
 
+      for (int dst = 1; dst < size; ++dst) {
+        MPI_Send(output.data(), output.size(), MPI_INT, dst, 0, MPI_COMM_WORLD);
+      }
+
     } else {
       if (my_rows > 0) {
         MPI_Send(local_result.data(), my_rows, MPI_INT, 0, 0, MPI_COMM_WORLD);
       }
+
+      int result_size;
+      MPI_Status status;
+      MPI_Probe(0, 0, MPI_COMM_WORLD, &status);
+      MPI_Get_count(&status, MPI_INT, &result_size);
+
+      std::vector<int> recv_buffer(result_size);
+      MPI_Recv(recv_buffer.data(), result_size, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
       auto &output = GetOutput();
-      output.clear();
-      output.push_back(0);
+      output = recv_buffer;
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -131,7 +143,7 @@ bool MinValuesInRowsMPI::RunImpl() {
 
 bool MinValuesInRowsMPI::PostProcessingImpl() {
   const auto &output = GetOutput();
-  return !output.empty();
+  return !output.empty() && output[0] > 0;
 }
 
 }  // namespace mityaeva_d_min_v_rows_matrix
