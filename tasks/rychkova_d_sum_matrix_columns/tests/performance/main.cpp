@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 
 #include <cstddef>
-#include <numeric>
 
 #include "rychkova_d_sum_matrix_columns/common/include/common.hpp"
 #include "rychkova_d_sum_matrix_columns/mpi/include/ops_mpi.hpp"
@@ -11,7 +10,7 @@
 namespace rychkova_d_sum_matrix_columns {
 
 class RychkovaRunPerfTestMatrixColumns : public ppc::util::BaseRunPerfTests<InType, OutType> {
-  const size_t kMatrixSize_ = 512;
+  const size_t kMatrixSize_ = 2024;
 
   InType input_matrix_;
 

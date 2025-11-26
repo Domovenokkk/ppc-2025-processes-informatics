@@ -2,9 +2,7 @@
 
 #include <mpi.h>
 
-#include <algorithm>
 #include <cstddef>
-#include <utility>
 #include <vector>
 
 #include "rychkova_d_sum_matrix_columns/common/include/common.hpp"
@@ -84,24 +82,24 @@ bool RychkovaDSumMatrixColumnsMPI::RunImpl() {
   bool has_data = !output.empty();
   size_t num_cols = output.size();
 
+  // Handle empty matrix case
   if (!has_data) {
     std::vector<int> empty_sums(0);
     MPI_Allreduce(MPI_IN_PLACE, empty_sums.data(), 0, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     return true;
   }
 
+  // Get matrix dimensions
   size_t num_rows = 0;
-
   if (rank == 0) {
     const auto &input = GetInput();
     num_rows = input.size();
   }
-
   MPI_Bcast(&num_rows, 1, MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD);
 
-  size_t rows_per_process = num_rows / size;
-  size_t remainder = num_rows % size;
-
+  // Calculate distribution
+  size_t rows_per_process = num_rows / static_cast<size_t>(size);
+  size_t remainder = num_rows % static_cast<size_t>(size);
   size_t local_rows = rows_per_process + (static_cast<size_t>(rank) < remainder ? 1 : 0);
 
   std::vector<int> send_counts(size);
@@ -110,7 +108,8 @@ bool RychkovaDSumMatrixColumnsMPI::RunImpl() {
   if (rank == 0) {
     size_t current_displacement = 0;
     for (int i = 0; i < size; ++i) {
-      size_t rows_for_process_i = rows_per_process + (static_cast<size_t>(i) < remainder ? 1 : 0);
+      size_t process_index = static_cast<size_t>(i);
+      size_t rows_for_process_i = rows_per_process + (process_index < remainder ? 1 : 0);
       send_counts[i] = static_cast<int>(rows_for_process_i * num_cols);
       displacements[i] = static_cast<int>(current_displacement);
       current_displacement += rows_for_process_i * num_cols;
@@ -120,6 +119,7 @@ bool RychkovaDSumMatrixColumnsMPI::RunImpl() {
   MPI_Bcast(send_counts.data(), size, MPI_INT, 0, MPI_COMM_WORLD);
   MPI_Bcast(displacements.data(), size, MPI_INT, 0, MPI_COMM_WORLD);
 
+  // Scatter matrix data
   std::vector<int> flat_matrix;
   if (rank == 0) {
     const auto &input = GetInput();
@@ -133,6 +133,7 @@ bool RychkovaDSumMatrixColumnsMPI::RunImpl() {
   MPI_Scatterv(rank == 0 ? flat_matrix.data() : nullptr, send_counts.data(), displacements.data(), MPI_INT,
                local_data.data(), static_cast<int>(local_rows * num_cols), MPI_INT, 0, MPI_COMM_WORLD);
 
+  // Compute local sums
   std::vector<int> local_sums(num_cols, 0);
   for (size_t i = 0; i < local_rows; ++i) {
     for (size_t j = 0; j < num_cols; ++j) {
@@ -140,6 +141,7 @@ bool RychkovaDSumMatrixColumnsMPI::RunImpl() {
     }
   }
 
+  // Reduce sums across all processes
   MPI_Allreduce(local_sums.data(), GetOutput().data(), static_cast<int>(num_cols), MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
   return true;

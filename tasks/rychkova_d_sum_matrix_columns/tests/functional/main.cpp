@@ -79,8 +79,8 @@ INSTANTIATE_TEST_SUITE_P(MatrixColumnsTests, RychkovaRunFuncTestsMatrixColumns, 
 
 class RychkovaInvalidMatrixTest : public ::testing::TestWithParam<InType> {
  protected:
-  void TestInvalidMatrix() {
-    InType input_matrix = GetParam();
+  static void TestInvalidMatrix() {
+    const InType &input_matrix = GetParam();
 
     RychkovaDSumMatrixColumnsMPI mpi_task(input_matrix);
     RychkovaDSumMatrixColumnsSEQ seq_task(input_matrix);
@@ -94,7 +94,7 @@ class RychkovaInvalidMatrixTest : public ::testing::TestWithParam<InType> {
 };
 
 TEST_P(RychkovaInvalidMatrixTest, ShouldFailValidationForInvalidMatrices) {
-  TestInvalidMatrix();
+  RychkovaInvalidMatrixTest::TestInvalidMatrix();
 }
 
 const std::array<InType, 3> kInvalidMatrices = {std::vector<std::vector<int>>{{1, 2}, {3, 4, 5}, {6}},
