@@ -3,6 +3,7 @@
 #include <mpi.h>
 
 #include <cstddef>
+#include <utility>
 #include <vector>
 
 #include "rychkova_d_sum_matrix_columns/common/include/common.hpp"
