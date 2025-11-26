@@ -81,7 +81,7 @@ void CalculateDistribution(int size, size_t num_rows, size_t num_cols, std::vect
 
   size_t current_displacement = 0;
   for (int i = 0; i < size; ++i) {
-    size_t process_index = static_cast<size_t>(i);
+    auto process_index = static_cast<size_t>(i);
     size_t rows_for_process_i = rows_per_process + (process_index < remainder ? 1 : 0);
     send_counts[i] = static_cast<int>(rows_for_process_i * num_cols);
     displacements[i] = static_cast<int>(current_displacement);
@@ -150,10 +150,10 @@ bool RychkovaDSumMatrixColumnsMPI::RunImpl() {
   MPI_Bcast(send_counts.data(), size, MPI_INT, 0, MPI_COMM_WORLD);
   MPI_Bcast(displacements.data(), size, MPI_INT, 0, MPI_COMM_WORLD);
 
-  // Calculate local rows count
+  // Calculate local rows count - FIXED: use std::cmp_less for safe comparison
   size_t rows_per_process = num_rows / static_cast<size_t>(size);
   size_t remainder = num_rows % static_cast<size_t>(size);
-  size_t local_rows = rows_per_process + (static_cast<size_t>(rank) < remainder ? 1 : 0);
+  size_t local_rows = rows_per_process + (std::cmp_less(rank, remainder) ? 1 : 0);
 
   // Scatter matrix data
   std::vector<int> flat_matrix;
