@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include "mityaeva_d_striped_horizontal_matrix_vector/common/include/common.hpp"
 #include "task/include/task.hpp"
 
@@ -18,10 +20,10 @@ class StripedHorizontalMatrixVectorMPI : public BaseTask {
   bool RunImpl() override;
   bool PostProcessingImpl() override;
 
-  int n_;
-  int m_;
-  int rank_;
-  int world_size_;
+  int n_ = 0;
+  int m_ = 0;
+  int rank_ = 0;
+  int world_size_ = 1;
   std::vector<std::vector<double>> local_rows_;
   std::vector<double> local_result_;
   std::vector<double> full_vector_;

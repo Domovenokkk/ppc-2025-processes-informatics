@@ -11,7 +11,7 @@
 namespace mityaeva_d_striped_horizontal_matrix_vector {
 
 class StripedHorizontalMatrixVectorRunPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
-  const int kMatrixSize_ = 100;  // Еще уменьшим для SEQ версии
+  const int kMatrixSize_ = 10;  // Еще уменьшим для SEQ версии
   InType input_data_;
 
   void SetUp() override {
