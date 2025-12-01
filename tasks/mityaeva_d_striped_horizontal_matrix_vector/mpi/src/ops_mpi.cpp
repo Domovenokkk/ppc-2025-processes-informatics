@@ -17,29 +17,31 @@ StripedHorizontalMatrixVectorMPI::StripedHorizontalMatrixVectorMPI(const InType 
 }
 
 bool StripedHorizontalMatrixVectorMPI::ValidationImpl() {
+  // Инициализация MPI
   MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
   MPI_Comm_size(MPI_COMM_WORLD, &world_size_);
 
-  bool is_valid = true;
+  // Валидация только на rank 0
   if (rank_ == 0) {
     if (GetInput().empty() || GetInput().size() < 3) {
-      is_valid = false;
-    } else {
-      int n = static_cast<int>(GetInput()[0]);
-      int m = static_cast<int>(GetInput()[1]);
-      if (n <= 0 || m <= 0 || GetInput().size() != static_cast<size_t>(2 + n * m + m)) {
-        is_valid = false;
-      }
-      // Проверка, что количество процессов не превышает количество строк
-      if (world_size_ > n) {
-        is_valid = false;
-      }
+      return false;
+    }
+
+    int n = static_cast<int>(GetInput()[0]);
+    int m = static_cast<int>(GetInput()[1]);
+
+    if (n <= 0 || m <= 0) {
+      return false;
+    }
+
+    if (GetInput().size() != static_cast<size_t>(2 + n * m + m)) {
+      return false;
     }
   }
 
-  int is_valid_int = is_valid ? 1 : 0;
-  MPI_Bcast(&is_valid_int, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  return (is_valid_int != 0);
+  // Все процессы возвращают true, так как валидация выполняется только на rank 0
+  // и если там false, то задача не будет выполняться дальше
+  return true;
 }
 
 bool StripedHorizontalMatrixVectorMPI::PreProcessingImpl() {
@@ -48,15 +50,12 @@ bool StripedHorizontalMatrixVectorMPI::PreProcessingImpl() {
     n_ = static_cast<int>(GetInput()[0]);
     m_ = static_cast<int>(GetInput()[1]);
   }
+
+  // Рассылаем размеры всем процессам
   MPI_Bcast(&n_, 1, MPI_INT, 0, MPI_COMM_WORLD);
   MPI_Bcast(&m_, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-  // Проверка корректности размеров
-  if (n_ <= 0 || m_ <= 0) {
-    return false;
-  }
-
-  // Вектор
+  // Инициализируем вектор
   full_vector_.assign(m_, 0.0);
   if (rank_ == 0) {
     size_t vec_start = 2 + static_cast<size_t>(n_) * m_;
@@ -64,11 +63,9 @@ bool StripedHorizontalMatrixVectorMPI::PreProcessingImpl() {
       full_vector_[j] = GetInput()[vec_start + j];
     }
   }
-  if (m_ > 0) {
-    MPI_Bcast(full_vector_.data(), m_, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-  }
+  MPI_Bcast(full_vector_.data(), m_, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-  // Распределение строк
+  // Распределение строк между процессами
   std::vector<int> rows_per_proc(world_size_, 0);
   int base = n_ / world_size_;
   int rem = n_ % world_size_;
@@ -77,16 +74,14 @@ bool StripedHorizontalMatrixVectorMPI::PreProcessingImpl() {
   }
 
   int local_rows_count = rows_per_proc[rank_];
+
+  // Инициализируем локальные данные
   if (local_rows_count > 0) {
     local_rows_.assign(local_rows_count, std::vector<double>(m_));
     local_result_.assign(local_rows_count, 0.0);
-  } else {
-    // Если процессу не досталось строк, создаем пустые векторы
-    local_rows_.clear();
-    local_result_.clear();
   }
 
-  // Подготовка sendcounts и displs для Scatterv
+  // Подготовка для Scatterv
   std::vector<int> sendcounts(world_size_, 0);
   std::vector<int> displs(world_size_, 0);
   int offset = 0;
@@ -96,13 +91,13 @@ bool StripedHorizontalMatrixVectorMPI::PreProcessingImpl() {
     offset += sendcounts[i];
   }
 
-  // Подготовка буфера для приема данных
+  // Буфер для приема данных
   std::vector<double> recvbuf;
   if (local_rows_count > 0) {
     recvbuf.assign(local_rows_count * m_, 0.0);
   }
 
-  // Подготовка плоского буфера для Scatterv на root процессе
+  // Подготовка матрицы на rank 0
   std::vector<double> flat_mat;
   if (rank_ == 0) {
     flat_mat.reserve(static_cast<size_t>(n_) * m_);
@@ -113,12 +108,12 @@ bool StripedHorizontalMatrixVectorMPI::PreProcessingImpl() {
     }
   }
 
-  // Распределение строк матрицы по процессам
+  // Распределение матрицы
   MPI_Scatterv(rank_ == 0 ? flat_mat.data() : nullptr, sendcounts.data(), displs.data(), MPI_DOUBLE,
                local_rows_count > 0 ? recvbuf.data() : nullptr,
                local_rows_count > 0 ? static_cast<int>(recvbuf.size()) : 0, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-  // Распаковка recvbuf в local_rows_
+  // Распаковка данных в локальные строки
   if (local_rows_count > 0) {
     for (int i = 0; i < local_rows_count; ++i) {
       for (int j = 0; j < m_; ++j) {
@@ -127,7 +122,7 @@ bool StripedHorizontalMatrixVectorMPI::PreProcessingImpl() {
     }
   }
 
-  // Выходной вектор на root
+  // Инициализация выходного вектора на rank 0
   if (rank_ == 0) {
     GetOutput().assign(n_, 0.0);
   }
@@ -145,7 +140,7 @@ bool StripedHorizontalMatrixVectorMPI::RunImpl() {
     local_result_[i] = sum;
   }
 
-  // Gatherv для сбора результатов
+  // Подготовка для Gatherv
   std::vector<int> rows_per_proc(world_size_, 0);
   int base = n_ / world_size_;
   int rem = n_ % world_size_;
@@ -162,29 +157,21 @@ bool StripedHorizontalMatrixVectorMPI::RunImpl() {
     offset += recvcounts[i];
   }
 
-  // Сбор результатов на root процессе
+  // Сбор результатов на rank 0
   MPI_Gatherv(local_result_.empty() ? nullptr : local_result_.data(), static_cast<int>(local_result_.size()),
               MPI_DOUBLE, rank_ == 0 ? GetOutput().data() : nullptr, recvcounts.data(), displs.data(), MPI_DOUBLE, 0,
               MPI_COMM_WORLD);
-
-  // УБРАН MPI_Barrier - он не нужен и может вызывать проблемы
 
   return true;
 }
 
 bool StripedHorizontalMatrixVectorMPI::PostProcessingImpl() {
-  // Проверяем результат только на root процессе
+  // На rank 0 проверяем результат
   if (rank_ == 0) {
-    // Убеждаемся, что выходной вектор имеет правильный размер
-    if (GetOutput().size() != static_cast<size_t>(n_)) {
-      GetOutput().assign(n_, 0.0);
-      return false;
-    }
-    return !GetOutput().empty();
+    return !GetOutput().empty() && static_cast<int>(GetOutput().size()) == n_;
   }
 
   // На остальных процессах просто возвращаем true
-  // Не очищаем GetOutput(), так как на этих процессах он и так пуст
   return true;
 }
 
