@@ -171,7 +171,7 @@ bool StripedHorizontalMatrixVectorMPI::RunImpl() {
   MPI_Barrier(MPI_COMM_WORLD);
   return true;
 }
-
+// da
 bool StripedHorizontalMatrixVectorMPI::PostProcessingImpl() {
   if (rank_ == 0) {
     return !GetOutput().empty() && static_cast<int>(GetOutput().size()) == n_;
