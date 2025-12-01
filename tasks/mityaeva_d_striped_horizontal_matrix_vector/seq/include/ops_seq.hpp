@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include "mityaeva_d_striped_horizontal_matrix_vector/common/include/common.hpp"
 #include "task/include/task.hpp"
 
@@ -10,6 +12,7 @@ class StripedHorizontalMatrixVectorSEQ : public BaseTask {
   static constexpr ppc::task::TypeOfTask GetStaticTypeOfTask() {
     return ppc::task::TypeOfTask::kSEQ;
   }
+
   explicit StripedHorizontalMatrixVectorSEQ(const InType &in);
 
  private:
@@ -18,9 +21,10 @@ class StripedHorizontalMatrixVectorSEQ : public BaseTask {
   bool RunImpl() override;
   bool PostProcessingImpl() override;
 
-  int n_;
-  int m_;
-  std::vector<std::vector<double>> matrix_;
+  int n_ = 0;
+  int m_ = 0;
+
+  std::vector<double> matrix_linear_;
   std::vector<double> vector_;
 };
 

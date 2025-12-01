@@ -1,9 +1,8 @@
 #include "mityaeva_d_striped_horizontal_matrix_vector/seq/include/ops_seq.hpp"
 
-#include <vector>
+#include <algorithm>
 
 #include "mityaeva_d_striped_horizontal_matrix_vector/common/include/common.hpp"
-#include "util/include/util.hpp"
 
 namespace mityaeva_d_striped_horizontal_matrix_vector {
 
@@ -16,7 +15,6 @@ bool StripedHorizontalMatrixVectorSEQ::ValidationImpl() {
   if (GetInput().empty()) {
     return false;
   }
-
   if (GetInput().size() < 3) {
     return false;
   }
@@ -27,7 +25,6 @@ bool StripedHorizontalMatrixVectorSEQ::ValidationImpl() {
   if (n <= 0 || m <= 0) {
     return false;
   }
-
   if (GetInput().size() != static_cast<size_t>(2 + n * m + m)) {
     return false;
   }
@@ -39,32 +36,37 @@ bool StripedHorizontalMatrixVectorSEQ::PreProcessingImpl() {
   n_ = static_cast<int>(GetInput()[0]);
   m_ = static_cast<int>(GetInput()[1]);
 
-  matrix_.resize(n_, std::vector<double>(m_));
+  matrix_linear_.resize(static_cast<size_t>(n_) * m_);
 
-  size_t index = 2;
+  size_t idx = 2;
   for (int i = 0; i < n_; ++i) {
-    for (int j = 0; j < m_; ++j) {
-      matrix_[i][j] = GetInput()[index++];
-    }
+    std::copy(GetInput().begin() + idx, GetInput().begin() + idx + m_,
+              matrix_linear_.begin() + static_cast<size_t>(i) * m_);
+    idx += m_;
   }
 
   vector_.resize(m_);
   for (int j = 0; j < m_; ++j) {
-    vector_[j] = GetInput()[index++];
+    vector_[j] = GetInput()[idx++];
   }
 
-  GetOutput().resize(n_, 0.0);
+  GetOutput().assign(n_, 0.0);
 
   return true;
 }
 
 bool StripedHorizontalMatrixVectorSEQ::RunImpl() {
+  const double *mat = matrix_linear_.data();
+  const double *vec = vector_.data();
+  double *out = GetOutput().data();
+
   for (int i = 0; i < n_; ++i) {
+    const double *row = mat + static_cast<size_t>(i) * m_;
     double sum = 0.0;
     for (int j = 0; j < m_; ++j) {
-      sum += matrix_[i][j] * vector_[j];
+      sum += row[j] * vec[j];
     }
-    GetOutput()[i] = sum;
+    out[i] = sum;
   }
 
   return true;
