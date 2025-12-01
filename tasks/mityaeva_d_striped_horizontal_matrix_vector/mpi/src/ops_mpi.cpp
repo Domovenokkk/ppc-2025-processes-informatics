@@ -164,12 +164,11 @@ bool StripedHorizontalMatrixVectorMPI::PostProcessingImpl() {
   if (output.empty()) {
     return false;
   }
-  
+
   int result_size = static_cast<int>(output[0]);
   int rows = static_cast<int>(GetInput()[0]);
-  
-  return result_size == rows && 
-         output.size() == static_cast<size_t>(result_size) + 1;
+
+  return result_size == rows && output.size() == static_cast<size_t>(result_size) + 1;
 }
 
 }  // namespace mityaeva_d_striped_horizontal_matrix_vector

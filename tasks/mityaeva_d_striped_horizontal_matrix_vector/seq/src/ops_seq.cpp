@@ -7,8 +7,7 @@
 
 namespace mityaeva_d_striped_horizontal_matrix_vector {
 
-StripedHorizontalMatrixVectorSEQ::StripedHorizontalMatrixVectorSEQ(const InType &in) 
-    : rows_(0), cols_(0) {
+StripedHorizontalMatrixVectorSEQ::StripedHorizontalMatrixVectorSEQ(const InType &in) : rows_(0), cols_(0) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
   GetOutput() = std::vector<double>{0.0};
@@ -82,14 +81,13 @@ bool StripedHorizontalMatrixVectorSEQ::RunImpl() {
 
 bool StripedHorizontalMatrixVectorSEQ::PostProcessingImpl() {
   const auto &output = GetOutput();
-  
+
   if (output.empty()) {
     return false;
   }
-  
+
   int result_size = static_cast<int>(output[0]);
-  return result_size == rows_ && 
-         output.size() == static_cast<size_t>(result_size) + 1;
+  return result_size == rows_ && output.size() == static_cast<size_t>(result_size) + 1;
 }
 
 }  // namespace mityaeva_d_striped_horizontal_matrix_vector

@@ -18,8 +18,8 @@ class StripedHorizontalMatrixVectorSEQ : public BaseTask {
   bool RunImpl() override;
   bool PostProcessingImpl() override;
 
-  int rows_;
-  int cols_;
+  int rows_{0};
+  int cols_{0};
 };
 
 }  // namespace mityaeva_d_striped_horizontal_matrix_vector
