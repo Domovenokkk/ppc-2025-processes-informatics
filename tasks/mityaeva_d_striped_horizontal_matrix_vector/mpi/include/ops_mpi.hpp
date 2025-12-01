@@ -19,14 +19,11 @@ class StripedHorizontalMatrixVectorMPI : public BaseTask {
   bool PreProcessingImpl() override;
   bool RunImpl() override;
   bool PostProcessingImpl() override;
-
-  int n_ = 0;
-  int m_ = 0;
-  int rank_ = 0;
-  int world_size_ = 1;
-  std::vector<std::vector<double>> local_rows_;
-  std::vector<double> local_result_;
-  std::vector<double> full_vector_;
 };
+
+std::vector<double> ProcessLocalRows(const std::vector<double> &input, int start_row, int my_rows, int cols,
+                                     int total_rows);
+void GatherResults(int rank, int size, int rows, int rows_per_process, int remainder,
+                   const std::vector<double> &local_result, std::vector<double> &output);
 
 }  // namespace mityaeva_d_striped_horizontal_matrix_vector

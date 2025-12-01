@@ -25,57 +25,47 @@ class StripedHorizontalMatrixVectorRunFuncTests : public ppc::util::BaseRunFuncT
   void SetUp() override {
     TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
     int test_index = std::get<0>(params);
+
     switch (test_index) {
       case 1: {
-        // Матрица 2x2 * вектор 2
-        // [1, 2]   [3]   [1*3 + 2*4]   [11]
-        // [3, 4] * [4] = [3*3 + 4*4] = [25]
-        input_data_ = {2, 2, 1.0, 2.0, 3.0, 4.0, 3.0, 4.0};
-        expected_output_ = {11.0, 25.0};
+        input_data_ = {2, 2, 2, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
+        expected_output_ = {2.0, 17.0, 39.0};
         break;
       }
       case 2: {
-        // Матрица 3x2 * вектор 2
-        // [1, 2]   [1]   [1*1 + 2*2]   [5]
-        // [3, 4] * [2] = [3*1 + 4*2] = [11]
-        // [5, 6]         [5*1 + 6*2]   [17]
-        input_data_ = {3, 2, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 1.0, 2.0};
-        expected_output_ = {5.0, 11.0, 17.0};
+        input_data_ = {1, 3, 3, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
+        expected_output_ = {1.0, 32.0};
         break;
       }
       case 3: {
-        // Матрица 1x3 * вектор 3
-        // [1, 2, 3] * [4, 5, 6] = [1*4 + 2*5 + 3*6] = [32]
-        input_data_ = {1, 3, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
-        expected_output_ = {32.0};
+        input_data_ = {3, 1, 1, 1.0, 2.0, 3.0, 4.0};
+        expected_output_ = {3.0, 4.0, 8.0, 12.0};
         break;
       }
       case 4: {
-        // Матрица 2x3 * вектор 3 с отрицательными числами
-        // [1, -2, 3]   [2]   [1*2 + (-2)*1 + 3*0]   [0]
-        // [0,  4, 5] * [1] = [0*2 + 4*1 + 5*0]   = [4]
-        //              [0]
-        input_data_ = {2, 3, 1.0, -2.0, 3.0, 0.0, 4.0, 5.0, 2.0, 1.0, 0.0};
-        expected_output_ = {0.0, 4.0};
+        input_data_ = {2, 2, 2, -1.0, 2.0, 3.0, -4.0, 5.0, -6.0};
+        expected_output_ = {2.0, -17.0, 39.0};
         break;
       }
       case 5: {
-        // Матрица 3x1 * вектор 1
-        // [1]   [2]   [2]
-        // [3] * [2] = [6]
-        // [5]         [10]
-        input_data_ = {3, 1, 1.0, 3.0, 5.0, 2.0};
-        expected_output_ = {2.0, 6.0, 10.0};
+        input_data_ = {3, 3, 3, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 2.0, 3.0};
+        expected_output_ = {3.0, 1.0, 2.0, 3.0};
         break;
       }
       case 6: {
-        // Матрица 4x2 * вектор 2
-        // [1, 0]   [1]   [1]
-        // [0, 1] * [2] = [2]
-        // [2, 0]         [2]
-        // [0, 2]         [4]
-        input_data_ = {4, 2, 1.0, 0.0, 0.0, 1.0, 2.0, 0.0, 0.0, 2.0, 1.0, 2.0};
-        expected_output_ = {1.0, 2.0, 2.0, 4.0};
+        input_data_ = {4,    4,    4,    1.0,  2.0,  3.0,  4.0,  5.0, 6.0, 7.0,  8.0, 9.0,
+                       10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 1.0, 0.0, -1.0, 2.0};
+        expected_output_ = {4.0, 6.0, 14.0, 22.0, 30.0};
+        break;
+      }
+      case 7: {
+        input_data_ = {2, 3, 3, 1.0, 0.5, 2.0, 3.0, 4.0, 1.5, 2.0, 4.0, 1.0};
+        expected_output_ = {2.0, 6.0, 23.5};
+        break;
+      }
+      case 8: {
+        input_data_ = {2, 3, 3, 0.0, 0.0, 0.0, 1.0, 0.0, 2.0, 3.0, 4.0, 5.0};
+        expected_output_ = {2.0, 0.0, 13.0};
         break;
       }
       default:
@@ -88,8 +78,9 @@ class StripedHorizontalMatrixVectorRunFuncTests : public ppc::util::BaseRunFuncT
       return false;
     }
 
+    const double epsilon = 1e-10;
     for (size_t i = 0; i < output_data.size(); ++i) {
-      if (std::abs(output_data[i] - expected_output_[i]) > 1e-6) {
+      if (std::abs(output_data[i] - expected_output_[i]) > epsilon) {
         return false;
       }
     }
@@ -108,13 +99,15 @@ class StripedHorizontalMatrixVectorRunFuncTests : public ppc::util::BaseRunFuncT
 
 namespace {
 
-TEST_P(StripedHorizontalMatrixVectorRunFuncTests, MatrixVectorMultiplication) {
+TEST_P(StripedHorizontalMatrixVectorRunFuncTests, StripedHorizontalMatrixVector) {
   ExecuteTest(GetParam());
 }
 
-const std::array<TestType, 6> kTestParam = {std::make_tuple(1, "2x2_matrix"), std::make_tuple(2, "3x2_matrix"),
-                                            std::make_tuple(3, "1x3_matrix"), std::make_tuple(4, "negative_numbers"),
-                                            std::make_tuple(5, "3x1_matrix"), std::make_tuple(6, "4x2_matrix")};
+const std::array<TestType, 8> kTestParam = {
+    std::make_tuple(1, "simple_2x2_matrix"),    std::make_tuple(2, "single_row_matrix"),
+    std::make_tuple(3, "single_column_matrix"), std::make_tuple(4, "negative_numbers"),
+    std::make_tuple(5, "identity_matrix"),      std::make_tuple(6, "large_4x4_matrix"),
+    std::make_tuple(7, "fractional_numbers"),   std::make_tuple(8, "zero_elements")};
 
 const auto kTestTasksList = std::tuple_cat(ppc::util::AddFuncTask<StripedHorizontalMatrixVectorMPI, InType>(
                                                kTestParam, PPC_SETTINGS_mityaeva_d_striped_horizontal_matrix_vector),
@@ -126,7 +119,8 @@ const auto kGtestValues = ppc::util::ExpandToValues(kTestTasksList);
 const auto kPerfTestName =
     StripedHorizontalMatrixVectorRunFuncTests::PrintFuncTestName<StripedHorizontalMatrixVectorRunFuncTests>;
 
-INSTANTIATE_TEST_SUITE_P(MatrixVectorTests, StripedHorizontalMatrixVectorRunFuncTests, kGtestValues, kPerfTestName);
+INSTANTIATE_TEST_SUITE_P(MatrixVectorMultiplicationTests, StripedHorizontalMatrixVectorRunFuncTests, kGtestValues,
+                         kPerfTestName);
 
 }  // namespace
 

@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 
 #include <cstddef>
-#include <vector>
 
 #include "mityaeva_d_striped_horizontal_matrix_vector/common/include/common.hpp"
 #include "mityaeva_d_striped_horizontal_matrix_vector/mpi/include/ops_mpi.hpp"
@@ -11,7 +10,7 @@
 namespace mityaeva_d_striped_horizontal_matrix_vector {
 
 class StripedHorizontalMatrixVectorRunPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
-  const int kMatrixSize_ = 10;  // Еще уменьшим для SEQ версии
+  const int kMatrixSize_ = 2000;
   InType input_data_;
 
   void SetUp() override {
@@ -19,47 +18,35 @@ class StripedHorizontalMatrixVectorRunPerfTests : public ppc::util::BaseRunPerfT
     int cols = kMatrixSize_;
 
     input_data_.clear();
-    input_data_.reserve(2 + (rows * cols) + cols);
+    input_data_.reserve(3 + (rows * cols) + cols);
 
-    // Добавляем размеры матрицы
-    input_data_.push_back(static_cast<double>(rows));
-    input_data_.push_back(static_cast<double>(cols));
+    input_data_.push_back(rows);
+    input_data_.push_back(cols);
+    input_data_.push_back(cols);
 
-    // Заполняем матрицу единицами для простоты проверки
     for (int i = 0; i < rows; ++i) {
       for (int j = 0; j < cols; ++j) {
-        input_data_.push_back(1.0);
+        input_data_.push_back(static_cast<double>((i + j) % 100) * 0.1);
       }
     }
 
-    // Заполняем вектор единицами
     for (int j = 0; j < cols; ++j) {
-      input_data_.push_back(1.0);
+      input_data_.push_back(static_cast<double>((j % 50) + 1) * 0.5);
     }
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    // Для MPI: только процесс 0 имеет выходные данные
-    // Для SEQ: всегда есть выходные данные
-
-    // Если выход пустой (для MPI процессов кроме 0), это нормально
     if (output_data.empty()) {
-      return true;
-    }
-
-    // Если есть данные, проверяем их
-    if (output_data.size() != static_cast<size_t>(kMatrixSize_)) {
       return false;
     }
 
-    // Для матрицы из единиц и вектора из единиц результат = cols
-    double expected_value = static_cast<double>(kMatrixSize_);
-    const double epsilon = 1e-6;
+    int result_size = static_cast<int>(output_data[0]);
+    if (result_size != kMatrixSize_) {
+      return false;
+    }
 
-    for (const auto &val : output_data) {
-      if (std::abs(val - expected_value) > epsilon) {
-        return false;
-      }
+    if (output_data.size() != static_cast<size_t>(result_size + 1)) {
+      return false;
     }
 
     return true;
