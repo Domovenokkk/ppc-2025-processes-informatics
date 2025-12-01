@@ -45,7 +45,7 @@ class StripedHorizontalMatrixVectorRunPerfTests : public ppc::util::BaseRunPerfT
       return false;
     }
 
-    if (output_data.size() != static_cast<size_t>(result_size + 1)) {
+    if (output_data.size() != static_cast<size_t>(result_size) + 1) {
       return false;
     }
 

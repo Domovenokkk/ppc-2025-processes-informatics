@@ -33,7 +33,7 @@ bool StripedHorizontalMatrixVectorMPI::ValidationImpl() {
     return false;
   }
 
-  size_t expected_size = 3 + static_cast<size_t>(rows) * static_cast<size_t>(cols) + static_cast<size_t>(cols);
+  size_t expected_size = 3 + (static_cast<size_t>(rows) * static_cast<size_t>(cols)) + static_cast<size_t>(cols);
 
   return input.size() == expected_size;
 }
@@ -48,13 +48,13 @@ std::vector<double> ProcessLocalRows(const std::vector<double> &input, int start
   local_result.reserve(my_rows);
 
   size_t matrix_start_idx = 3;
-  size_t vector_start_idx = matrix_start_idx + static_cast<size_t>(total_rows) * static_cast<size_t>(cols);
+  size_t vector_start_idx = matrix_start_idx + (static_cast<size_t>(total_rows) * static_cast<size_t>(cols));
 
   for (int i = 0; i < my_rows; ++i) {
     int global_row = start_row + i;
     double sum = 0.0;
 
-    size_t row_start = matrix_start_idx + static_cast<size_t>(global_row) * static_cast<size_t>(cols);
+    size_t row_start = matrix_start_idx + (static_cast<size_t>(global_row) * static_cast<size_t>(cols));
 
     for (int j = 0; j < cols; ++j) {
       double matrix_element = input[row_start + j];
@@ -164,11 +164,12 @@ bool StripedHorizontalMatrixVectorMPI::PostProcessingImpl() {
   if (output.empty()) {
     return false;
   }
-
+  
   int result_size = static_cast<int>(output[0]);
   int rows = static_cast<int>(GetInput()[0]);
-
-  return result_size == rows && output.size() == static_cast<size_t>(result_size + 1);
+  
+  return result_size == rows && 
+         output.size() == static_cast<size_t>(result_size) + 1;
 }
 
 }  // namespace mityaeva_d_striped_horizontal_matrix_vector
