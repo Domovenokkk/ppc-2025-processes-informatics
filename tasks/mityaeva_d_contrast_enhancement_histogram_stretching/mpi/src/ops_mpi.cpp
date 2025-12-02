@@ -39,22 +39,23 @@ bool ContrastEnhancementMPI::PreProcessingImpl() {
   return true;
 }
 
-void FindGlobalMinMax(const std::vector<uint8_t> &local_pixels, uint8_t &local_min, uint8_t &local_max,
-                      uint8_t &global_min, uint8_t &global_max) {
+void FindGlobalMinMax(const std::vector<uint8_t> &local_pixels, unsigned char &local_min, unsigned char &local_max,
+                      unsigned char &global_min, unsigned char &global_max) {
   local_min = kMaxPixelValue;
   local_max = kMinPixelValue;
 
   for (uint8_t pixel : local_pixels) {
-    local_min = std::min(pixel, local_min);
-    local_max = std::max(pixel, local_max);
+    unsigned char pixel_uc = static_cast<unsigned char>(pixel);
+    local_min = std::min(pixel_uc, local_min);
+    local_max = std::max(pixel_uc, local_max);
   }
 
   MPI_Allreduce(&local_min, &global_min, 1, MPI_UNSIGNED_CHAR, MPI_MIN, MPI_COMM_WORLD);
   MPI_Allreduce(&local_max, &global_max, 1, MPI_UNSIGNED_CHAR, MPI_MAX, MPI_COMM_WORLD);
 }
 
-std::vector<uint8_t> ProcessLocalPixels(const std::vector<uint8_t> &local_pixels, uint8_t global_min,
-                                        uint8_t global_max) {
+std::vector<uint8_t> ProcessLocalPixels(const std::vector<uint8_t> &local_pixels, unsigned char global_min,
+                                        unsigned char global_max) {
   std::vector<uint8_t> local_result;
   local_result.reserve(local_pixels.size());
 
@@ -66,17 +67,14 @@ std::vector<uint8_t> ProcessLocalPixels(const std::vector<uint8_t> &local_pixels
   double scale = static_cast<double>(kMaxPixelValue - kMinPixelValue) / static_cast<double>(global_max - global_min);
 
   for (uint8_t pixel : local_pixels) {
-    double new_value = static_cast<double>(pixel - global_min) * scale;
+    unsigned char pixel_uc = static_cast<unsigned char>(pixel);
+    double new_value = static_cast<double>(pixel_uc - global_min) * scale;
 
     double clamped_value = new_value + 0.5;
-    if (clamped_value < 0.0) {
-      clamped_value = 0.0;
-    }
-    if (clamped_value > 255.0) {
-      clamped_value = 255.0;
-    }
+    clamped_value = std::max(clamped_value, 0.0);
+    clamped_value = std::min(clamped_value, 255.0);
 
-    uint8_t enhanced_pixel = static_cast<uint8_t>(clamped_value);
+    auto enhanced_pixel = static_cast<uint8_t>(clamped_value);
     local_result.push_back(enhanced_pixel);
   }
 
@@ -109,8 +107,9 @@ void GatherResults(int rank, int size, const std::vector<uint8_t> &local_result,
     final_output.resize(total_size + 2);
   }
 
-  MPI_Gatherv(local_result.data(), local_size, MPI_UNSIGNED_CHAR, (rank == 0) ? final_output.data() + 2 : nullptr,
-              recv_counts.data(), displs.data(), MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD);
+  MPI_Gatherv(const_cast<uint8_t *>(local_result.data()), local_size, MPI_UNSIGNED_CHAR,
+              (rank == 0) ? reinterpret_cast<unsigned char *>(final_output.data() + 2) : nullptr, recv_counts.data(),
+              displs.data(), MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD);
 
   int total_output_size = 0;
   if (rank == 0) {
@@ -130,8 +129,8 @@ bool ContrastEnhancementMPI::RunImpl() {
   const auto &input = GetInput();
 
   try {
-    int rank;
-    int size;
+    int rank = 0;
+    int size = 0;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
@@ -170,13 +169,15 @@ bool ContrastEnhancementMPI::RunImpl() {
       }
     }
 
-    uint8_t local_min;
-    uint8_t local_max;
-    uint8_t global_min;
-    uint8_t global_max;
+    unsigned char local_min = 0;
+    unsigned char local_max = 0;
+    unsigned char global_min = 0;
+    unsigned char global_max = 0;
     FindGlobalMinMax(local_pixels, local_min, local_max, global_min, global_max);
 
-    std::vector<uint8_t> local_result = ProcessLocalPixels(local_pixels, global_min, global_max);
+    uint8_t global_min_u8 = static_cast<uint8_t>(global_min);
+    uint8_t global_max_u8 = static_cast<uint8_t>(global_max);
+    std::vector<uint8_t> local_result = ProcessLocalPixels(local_pixels, global_min_u8, global_max_u8);
 
     std::vector<uint8_t> final_output;
     GatherResults(rank, size, local_result, width, height, final_output);

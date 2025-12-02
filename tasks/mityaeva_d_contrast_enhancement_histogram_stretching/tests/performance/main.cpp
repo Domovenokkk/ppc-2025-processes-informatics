@@ -12,7 +12,7 @@
 namespace mityaeva_d_contrast_enhancement_histogram_stretching {
 
 class ContrastEnhancementRunPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
-  const int kImageSize_ = 128;
+  const int kImageSize_ = 1024;
   InType input_data_;
 
   void SetUp() override {
