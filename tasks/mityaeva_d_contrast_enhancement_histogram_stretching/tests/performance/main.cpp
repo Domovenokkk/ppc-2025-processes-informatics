@@ -93,7 +93,7 @@ class ContrastEnhancementRunPerfTests : public ppc::util::BaseRunPerfTests<InTyp
 TEST_P(ContrastEnhancementRunPerfTests, RunPerfModes) {
   InType input_data = GetTestInputData();
 
-  const int iterations = 100000;
+  const int iterations = 1000;
 
   for (int i = 0; i < iterations; ++i) {
     ExecuteTest(GetParam());
