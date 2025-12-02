@@ -1,6 +1,7 @@
 #include "mityaeva_d_contrast_enhancement_histogram_stretching/seq/include/ops_seq.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -37,13 +38,17 @@ bool ContrastEnhancementSEQ::ValidationImpl() {
 bool ContrastEnhancementSEQ::PreProcessingImpl() {
   const auto &input = GetInput();
 
-  min_pixel_ = kMaxPixelValue;
-  max_pixel_ = kMinPixelValue;
+  min_pixel_ = 255;
+  max_pixel_ = 0;
 
   for (size_t i = 2; i < input.size(); ++i) {
     uint8_t pixel = input[i];
-    min_pixel_ = std::min(pixel, min_pixel_);
-    max_pixel_ = std::max(pixel, max_pixel_);
+    if (pixel < min_pixel_) {
+      min_pixel_ = pixel;
+    }
+    if (pixel > max_pixel_) {
+      max_pixel_ = pixel;
+    }
   }
 
   return true;
@@ -52,39 +57,37 @@ bool ContrastEnhancementSEQ::PreProcessingImpl() {
 bool ContrastEnhancementSEQ::RunImpl() {
   try {
     const auto &input = GetInput();
-    const size_t input_size = input.size();
-
-    if (input_size < 2) {
-      return false;
-    }
-
     OutType result;
+
     result.push_back(static_cast<uint8_t>(width_));
     result.push_back(static_cast<uint8_t>(height_));
 
     if (min_pixel_ == max_pixel_) {
-      result.reserve(input_size);
-      for (size_t i = 2; i < input_size; ++i) {
-        result.push_back(input[i]);
-      }
+      result.insert(result.end(), input.begin() + 2, input.end());
     } else {
-      double scale =
-          static_cast<double>(kMaxPixelValue - kMinPixelValue) / static_cast<double>(max_pixel_ - min_pixel_);
+      double scale = 255.0 / static_cast<double>(max_pixel_ - min_pixel_);
 
-      result.reserve(input_size);
-      for (size_t i = 2; i < input_size; ++i) {
+      result.reserve(total_pixels_ + 2);
+
+      for (size_t i = 2; i < input.size(); ++i) {
         uint8_t pixel = input[i];
-        double new_value = static_cast<double>(pixel - min_pixel_) * scale;
-        double rounded_value = new_value + 0.5;
 
-        rounded_value = std::max(rounded_value, 0.0);
-        rounded_value = std::min(rounded_value, 255.0);
+        double stretched_value = static_cast<double>(pixel - min_pixel_) * scale;
+
+        int rounded_value = static_cast<int>(std::round(stretched_value));
+
+        if (rounded_value < 0) {
+          rounded_value = 0;
+        }
+        if (rounded_value > 255) {
+          rounded_value = 255;
+        }
 
         result.push_back(static_cast<uint8_t>(rounded_value));
       }
     }
 
-    GetOutput().swap(result);
+    GetOutput() = std::move(result);
     return true;
 
   } catch (...) {

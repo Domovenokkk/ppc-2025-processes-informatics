@@ -77,13 +77,8 @@ class ContrastEnhancementRunFuncTests : public ppc::util::BaseRunFuncTests<InTyp
       return false;
     }
 
-    if (output_data[0] != expected_output_[0] || output_data[1] != expected_output_[1]) {
-      return false;
-    }
-
-    for (size_t i = 2; i < output_data.size(); ++i) {
-      int diff = static_cast<int>(output_data[i]) - static_cast<int>(expected_output_[i]);
-      if (std::abs(diff) > 1) {
+    for (size_t i = 0; i < output_data.size(); ++i) {
+      if (output_data[i] != expected_output_[i]) {
         return false;
       }
     }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 #include "mityaeva_d_contrast_enhancement_histogram_stretching/common/include/common.hpp"
 #include "task/include/task.hpp"
@@ -12,6 +13,7 @@ class ContrastEnhancementSEQ : public BaseTask {
   static constexpr ppc::task::TypeOfTask GetStaticTypeOfTask() {
     return ppc::task::TypeOfTask::kSEQ;
   }
+
   explicit ContrastEnhancementSEQ(const InType &in);
 
  private:
