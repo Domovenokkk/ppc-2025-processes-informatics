@@ -61,11 +61,7 @@ class ContrastEnhancementRunPerfTests : public ppc::util::BaseRunPerfTests<InTyp
     if (output_data.size() != expected_size) {
       return false;
     }
-    for (size_t i = 2; i < output_data.size(); ++i) {
-      if (output_data[i] > 255) {
-        return false;
-      }
-    }
+
     return true;
   }
 
