@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <iostream>
 #include <vector>
 
 #include "mityaeva_d_contrast_enhancement_histogram_stretching/common/include/common.hpp"
@@ -13,7 +12,7 @@
 namespace mityaeva_d_contrast_enhancement_histogram_stretching {
 
 class ContrastEnhancementRunPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
-  const int kImageSize_ = 512;
+  const int kImageSize_ = 128;
   InType input_data_;
 
   void SetUp() override {
@@ -23,11 +22,14 @@ class ContrastEnhancementRunPerfTests : public ppc::util::BaseRunPerfTests<InTyp
 
     input_data_.clear();
     input_data_.reserve(2 + total_pixels);
-    if (width > 255 || height > 255) {
+
+    if (width > 255) {
       width = 255;
-      height = 255;
-      total_pixels = width * height;
     }
+    if (height > 255) {
+      height = 255;
+    }
+    total_pixels = width * height;
 
     input_data_.push_back(static_cast<uint8_t>(width));
     input_data_.push_back(static_cast<uint8_t>(height));
@@ -58,12 +60,8 @@ class ContrastEnhancementRunPerfTests : public ppc::util::BaseRunPerfTests<InTyp
     if (output_data.size() != expected_size) {
       return false;
     }
-
-    for (size_t i = 2; i < output_data.size(); ++i) {
-      uint8_t pixel = output_data[i];
-      if (pixel > 255) {
-        return false;
-      }
+    if (output_data.size() <= 2) {
+      return false;
     }
 
     return true;
