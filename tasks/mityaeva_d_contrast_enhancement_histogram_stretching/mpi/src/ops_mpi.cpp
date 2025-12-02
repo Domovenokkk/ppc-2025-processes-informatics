@@ -45,7 +45,7 @@ void FindGlobalMinMax(const std::vector<uint8_t> &local_pixels, unsigned char &l
   local_max = kMinPixelValue;
 
   for (uint8_t pixel : local_pixels) {
-    unsigned char pixel_uc = static_cast<unsigned char>(pixel);
+    auto pixel_uc = static_cast<unsigned char>(pixel);
     local_min = std::min(pixel_uc, local_min);
     local_max = std::max(pixel_uc, local_max);
   }
@@ -67,7 +67,7 @@ std::vector<uint8_t> ProcessLocalPixels(const std::vector<uint8_t> &local_pixels
   double scale = static_cast<double>(kMaxPixelValue - kMinPixelValue) / static_cast<double>(global_max - global_min);
 
   for (uint8_t pixel : local_pixels) {
-    unsigned char pixel_uc = static_cast<unsigned char>(pixel);
+    auto pixel_uc = static_cast<unsigned char>(pixel);
     double new_value = static_cast<double>(pixel_uc - global_min) * scale;
 
     double clamped_value = new_value + 0.5;
@@ -107,7 +107,10 @@ void GatherResults(int rank, int size, const std::vector<uint8_t> &local_result,
     final_output.resize(total_size + 2);
   }
 
-  MPI_Gatherv(const_cast<uint8_t *>(local_result.data()), local_size, MPI_UNSIGNED_CHAR,
+  // Создаем неконстантную копию данных для MPI_Gatherv
+  std::vector<uint8_t> local_result_copy = local_result;
+
+  MPI_Gatherv(local_result_copy.data(), local_size, MPI_UNSIGNED_CHAR,
               (rank == 0) ? reinterpret_cast<unsigned char *>(final_output.data() + 2) : nullptr, recv_counts.data(),
               displs.data(), MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD);
 
@@ -175,8 +178,8 @@ bool ContrastEnhancementMPI::RunImpl() {
     unsigned char global_max = 0;
     FindGlobalMinMax(local_pixels, local_min, local_max, global_min, global_max);
 
-    uint8_t global_min_u8 = static_cast<uint8_t>(global_min);
-    uint8_t global_max_u8 = static_cast<uint8_t>(global_max);
+    auto global_min_u8 = static_cast<uint8_t>(global_min);
+    auto global_max_u8 = static_cast<uint8_t>(global_max);
     std::vector<uint8_t> local_result = ProcessLocalPixels(local_pixels, global_min_u8, global_max_u8);
 
     std::vector<uint8_t> final_output;
