@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <vector>
 
 #include "mityaeva_d_contrast_enhancement_histogram_stretching/common/include/common.hpp"
 #include "mityaeva_d_contrast_enhancement_histogram_stretching/mpi/include/ops_mpi.hpp"
@@ -38,7 +37,7 @@ class ContrastEnhancementRunPerfTests : public ppc::util::BaseRunPerfTests<InTyp
       int y = i / width;
       int x = i % width;
 
-      uint8_t pixel_value;
+      uint8_t pixel_value = 0;
       if (i % 10 == 0) {
         pixel_value = 0;
       } else if (i % 10 == 1) {
@@ -94,7 +93,7 @@ class ContrastEnhancementRunPerfTests : public ppc::util::BaseRunPerfTests<InTyp
 TEST_P(ContrastEnhancementRunPerfTests, RunPerfModes) {
   InType input_data = GetTestInputData();
 
-  const int iterations = 100;
+  const int iterations = 100000;
 
   for (int i = 0; i < iterations; ++i) {
     ExecuteTest(GetParam());
