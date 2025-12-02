@@ -24,12 +24,12 @@ bool ContrastEnhancementMPI::ValidationImpl() {
   if (input.size() < 3) {
     return false;
   }
-  int w = static_cast<int>(input[0]);
-  int h = static_cast<int>(input[1]);
-  if (w <= 0 || h <= 0) {
+  int width = static_cast<int>(input[0]);
+  int height = static_cast<int>(input[1]);
+  if (width <= 0 || height <= 0) {
     return false;
   }
-  return input.size() == static_cast<size_t>(w * h) + 2;
+  return input.size() == static_cast<size_t>(width * height) + 2;
 }
 
 bool ContrastEnhancementMPI::PreProcessingImpl() {
@@ -37,13 +37,13 @@ bool ContrastEnhancementMPI::PreProcessingImpl() {
 }
 
 void FindGlobalMinMax(const std::vector<uint8_t> &local_pixels, unsigned char &global_min, unsigned char &global_max) {
-  unsigned char local_min = kMaxPixelValue;
-  unsigned char local_max = kMinPixelValue;
+  auto local_min = kMaxPixelValue;
+  auto local_max = kMinPixelValue;
 
-  for (uint8_t p : local_pixels) {
-    unsigned char v = static_cast<unsigned char>(p);
-    local_min = std::min(local_min, v);
-    local_max = std::max(local_max, v);
+  for (auto pixel : local_pixels) {
+    auto value = static_cast<unsigned char>(pixel);
+    local_min = std::min(local_min, value);
+    local_max = std::max(local_max, value);
   }
 
   MPI_Allreduce(&local_min, &global_min, 1, MPI_UNSIGNED_CHAR, MPI_MIN, MPI_COMM_WORLD);
@@ -52,18 +52,18 @@ void FindGlobalMinMax(const std::vector<uint8_t> &local_pixels, unsigned char &g
 
 std::vector<uint8_t> ProcessLocalPixels(const std::vector<uint8_t> &local_pixels, unsigned char global_min,
                                         unsigned char global_max) {
-  std::vector<uint8_t> out;
-  out.reserve(local_pixels.size());
+  std::vector<uint8_t> result;
+  result.reserve(local_pixels.size());
 
   if (global_min == global_max) {
     volatile double sink = 0.0;
-    for (int r = 0; r < kComputeRepeats; ++r) {
-      for (uint8_t p : local_pixels) {
-        sink += p;
+    for (int repeat_index = 0; repeat_index < kComputeRepeats; ++repeat_index) {
+      for (auto pixel : local_pixels) {
+        sink += pixel;
       }
     }
-    out = local_pixels;
-    return out;
+    result = local_pixels;
+    return result;
   }
 
   double scale = static_cast<double>(kMaxPixelValue - kMinPixelValue) / static_cast<double>(global_max - global_min);
@@ -71,27 +71,28 @@ std::vector<uint8_t> ProcessLocalPixels(const std::vector<uint8_t> &local_pixels
   std::vector<uint8_t> temp;
   temp.reserve(local_pixels.size());
 
-  for (uint8_t pixel : local_pixels) {
-    double v = static_cast<double>(pixel - global_min) * scale;
-    v = std::min(std::max(v + 0.5, 0.0), 255.0);
-    temp.push_back(static_cast<uint8_t>(v));
+  for (auto pixel : local_pixels) {
+    double value = static_cast<double>(pixel - global_min) * scale;
+    value = std::min(std::max(value + 0.5, 0.0), 255.0);
+    temp.push_back(static_cast<uint8_t>(value));
   }
 
   volatile double sink = 0.0;
-  for (int r = 1; r < kComputeRepeats; ++r) {
-    for (size_t i = 0; i < temp.size(); ++i) {
-      sink += static_cast<double>(temp[i]) * scale;
+  for (int repeat_index = 1; repeat_index < kComputeRepeats; ++repeat_index) {
+    for (auto pixel_value : temp) {
+      sink += static_cast<double>(pixel_value) * scale;
     }
   }
 
-  out = temp;
-  return out;
+  result = temp;
+  return result;
 }
 
 void GatherResults(int rank, int size, const std::vector<uint8_t> &local_result, int width, int height,
                    std::vector<uint8_t> &final_output) {
   int local_size = static_cast<int>(local_result.size());
-  std::vector<int> recv_counts(size, 0), displs(size, 0);
+  std::vector<int> recv_counts(size, 0);
+  std::vector<int> displs(size, 0);
 
   MPI_Gather(&local_size, 1, MPI_INT, recv_counts.data(), 1, MPI_INT, 0, MPI_COMM_WORLD);
 
@@ -100,9 +101,9 @@ void GatherResults(int rank, int size, const std::vector<uint8_t> &local_result,
       displs[i] = displs[i - 1] + recv_counts[i - 1];
     }
 
-    int total = displs[size - 1] + recv_counts[size - 1];
+    int total_size = displs[size - 1] + recv_counts[size - 1];
     final_output.clear();
-    final_output.resize(total + 2);
+    final_output.resize(total_size + 2);
     final_output[0] = static_cast<uint8_t>(width);
     final_output[1] = static_cast<uint8_t>(height);
   }
@@ -112,7 +113,7 @@ void GatherResults(int rank, int size, const std::vector<uint8_t> &local_result,
 
   int total_size = 0;
   if (rank == 0) {
-    total_size = final_output.size();
+    total_size = static_cast<int>(final_output.size());
   }
 
   MPI_Bcast(&total_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -126,22 +127,22 @@ bool ContrastEnhancementMPI::RunImpl() {
   try {
     const auto &input = GetInput();
 
-    int rank, size;
+    int rank = 0;
+    int size = 0;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
     int width = static_cast<int>(input[0]);
     int height = static_cast<int>(input[1]);
-    int total = width * height;
+    int total_pixels = width * height;
 
-    int base = total / size;
-    int rem = total % size;
+    int base_pixels = total_pixels / size;
+    int remainder = total_pixels % size;
 
-    int my_pixels = base + (rank < rem ? 1 : 0);
+    int my_pixels = base_pixels + (rank < remainder ? 1 : 0);
     int offset = 0;
-
     for (int i = 0; i < rank; ++i) {
-      offset += base + (i < rem ? 1 : 0);
+      offset += base_pixels + (i < remainder ? 1 : 0);
     }
 
     std::vector<uint8_t> local_pixels;
@@ -152,10 +153,11 @@ bool ContrastEnhancementMPI::RunImpl() {
       }
     }
 
-    unsigned char gmin, gmax;
-    FindGlobalMinMax(local_pixels, gmin, gmax);
+    unsigned char global_min = 0;
+    unsigned char global_max = 0;
+    FindGlobalMinMax(local_pixels, global_min, global_max);
 
-    std::vector<uint8_t> local_result = ProcessLocalPixels(local_pixels, gmin, gmax);
+    std::vector<uint8_t> local_result = ProcessLocalPixels(local_pixels, global_min, global_max);
 
     std::vector<uint8_t> final_output;
     GatherResults(rank, size, local_result, width, height, final_output);
@@ -170,22 +172,30 @@ bool ContrastEnhancementMPI::RunImpl() {
 
 bool ContrastEnhancementMPI::PostProcessingImpl() {
   const auto &out = GetOutput();
+
   if (out.size() < 2) {
     return false;
   }
-  int w = out[0], h = out[1];
-  int iw = GetInput()[0], ih = GetInput()[1];
-  if (w != iw || h != ih) {
+
+  int width_out = static_cast<int>(out[0]);
+  int height_out = static_cast<int>(out[1]);
+
+  int width_in = static_cast<int>(GetInput()[0]);
+  int height_in = static_cast<int>(GetInput()[1]);
+
+  if (width_out != width_in || height_out != height_in) {
     return false;
   }
-  if (out.size() != static_cast<size_t>(w * h) + 2) {
+  if (out.size() != static_cast<size_t>(width_out * height_out) + 2) {
     return false;
   }
-  for (size_t i = 2; i < out.size(); ++i) {
-    if (out[i] < kMinPixelValue || out[i] > kMaxPixelValue) {
+
+  for (auto pixel : out) {
+    if (pixel < kMinPixelValue || pixel > kMaxPixelValue) {
       return false;
     }
   }
+
   return true;
 }
 
