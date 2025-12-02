@@ -23,7 +23,8 @@ class ContrastEnhancementMPI : public BaseTask {
   bool PostProcessingImpl() override;
 };
 
-void FindGlobalMinMax(const std::vector<uint8_t> &local_pixels, unsigned char &global_min, unsigned char &global_max);
+void FindGlobalMinMax(const std::vector<uint8_t> &local_pixels, unsigned char &local_min, unsigned char &local_max,
+                      unsigned char &global_min, unsigned char &global_max);
 
 std::vector<uint8_t> ProcessLocalPixels(const std::vector<uint8_t> &local_pixels, uint8_t global_min,
                                         uint8_t global_max);
