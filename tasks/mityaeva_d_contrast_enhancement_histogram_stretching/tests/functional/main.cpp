@@ -1,12 +1,11 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cmath>
 #include <cstddef>
-#include <cstdint>
 #include <stdexcept>
 #include <string>
 #include <tuple>
-#include <vector>
 
 #include "mityaeva_d_contrast_enhancement_histogram_stretching/common/include/common.hpp"
 #include "mityaeva_d_contrast_enhancement_histogram_stretching/mpi/include/ops_mpi.hpp"

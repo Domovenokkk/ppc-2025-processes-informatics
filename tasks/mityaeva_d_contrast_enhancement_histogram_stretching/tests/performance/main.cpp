@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -23,12 +24,8 @@ class ContrastEnhancementRunPerfTests : public ppc::util::BaseRunPerfTests<InTyp
     input_data_.clear();
     input_data_.reserve(2 + total_pixels);
 
-    if (width > 255) {
-      width = 255;
-    }
-    if (height > 255) {
-      height = 255;
-    }
+    width = std::min(width, 255);
+    height = std::min(height, 255);
     total_pixels = width * height;
 
     input_data_.push_back(static_cast<uint8_t>(width));
@@ -37,7 +34,7 @@ class ContrastEnhancementRunPerfTests : public ppc::util::BaseRunPerfTests<InTyp
     for (int i = 0; i < total_pixels; ++i) {
       int y = i / width;
       int x = i % width;
-      uint8_t pixel_value = static_cast<uint8_t>((x + y) % 256);
+      auto pixel_value = static_cast<uint8_t>((x + y) % 256);
       input_data_.push_back(pixel_value);
     }
   }

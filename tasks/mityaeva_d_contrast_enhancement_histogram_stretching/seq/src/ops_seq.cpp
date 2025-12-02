@@ -37,17 +37,13 @@ bool ContrastEnhancementSEQ::ValidationImpl() {
 bool ContrastEnhancementSEQ::PreProcessingImpl() {
   const auto &input = GetInput();
 
-  min_pixel_ = MAX_PIXEL_VALUE;
-  max_pixel_ = MIN_PIXEL_VALUE;
+  min_pixel_ = kMaxPixelValue;
+  max_pixel_ = kMinPixelValue;
 
   for (size_t i = 2; i < input.size(); ++i) {
     uint8_t pixel = input[i];
-    if (pixel < min_pixel_) {
-      min_pixel_ = pixel;
-    }
-    if (pixel > max_pixel_) {
-      max_pixel_ = pixel;
-    }
+    min_pixel_ = std::min(pixel, min_pixel_);
+    max_pixel_ = std::max(pixel, max_pixel_);
   }
 
   return true;
@@ -58,54 +54,36 @@ bool ContrastEnhancementSEQ::RunImpl() {
     const auto &input = GetInput();
     const size_t input_size = input.size();
 
-    // Быстрая проверка
     if (input_size < 2) {
       return false;
     }
 
-    // Создаем результат напрямую, без промежуточного вектора
     OutType result;
-
-    // Добавляем размеры изображения
     result.push_back(static_cast<uint8_t>(width_));
     result.push_back(static_cast<uint8_t>(height_));
 
-    // Если все пиксели одинаковые, просто копируем
     if (min_pixel_ == max_pixel_) {
-      // Резервируем память для эффективности
       result.reserve(input_size);
-
-      // Копируем все пиксели, начиная с индекса 2
       for (size_t i = 2; i < input_size; ++i) {
         result.push_back(input[i]);
       }
     } else {
-      // Вычисляем коэффициент растяжки
       double scale =
-          static_cast<double>(MAX_PIXEL_VALUE - MIN_PIXEL_VALUE) / static_cast<double>(max_pixel_ - min_pixel_);
+          static_cast<double>(kMaxPixelValue - kMinPixelValue) / static_cast<double>(max_pixel_ - min_pixel_);
 
-      // Резервируем память для эффективности
       result.reserve(input_size);
-
-      // Обрабатываем все пиксели
       for (size_t i = 2; i < input_size; ++i) {
         uint8_t pixel = input[i];
         double new_value = static_cast<double>(pixel - min_pixel_) * scale;
-
-        // Округляем и ограничиваем диапазон
         double rounded_value = new_value + 0.5;
-        if (rounded_value < 0.0) {
-          rounded_value = 0.0;
-        }
-        if (rounded_value > 255.0) {
-          rounded_value = 255.0;
-        }
+
+        rounded_value = std::max(rounded_value, 0.0);
+        rounded_value = std::min(rounded_value, 255.0);
 
         result.push_back(static_cast<uint8_t>(rounded_value));
       }
     }
 
-    // Устанавливаем результат
     GetOutput().swap(result);
     return true;
 
@@ -132,8 +110,6 @@ bool ContrastEnhancementSEQ::PostProcessingImpl() {
     return false;
   }
 
-  // Проверка диапазона не нужна для uint8_t, так как он всегда 0-255
-  // Но можно проверить, что данные вообще есть
   if (output.size() <= 2) {
     return false;
   }
