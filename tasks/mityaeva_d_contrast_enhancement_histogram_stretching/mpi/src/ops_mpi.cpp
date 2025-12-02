@@ -44,13 +44,21 @@ void FindGlobalMinMax(const std::vector<uint8_t> &local_pixels, uint8_t &local_m
   local_min = kMaxPixelValue;
   local_max = kMinPixelValue;
 
-  for (uint8_t pixel : local_pixels) {
+  for (auto pixel : local_pixels) {
     local_min = std::min(pixel, local_min);
     local_max = std::max(pixel, local_max);
   }
 
-  MPI_Allreduce(&local_min, &global_min, 1, MPI_UNSIGNED_CHAR, MPI_MIN, MPI_COMM_WORLD);
-  MPI_Allreduce(&local_max, &global_max, 1, MPI_UNSIGNED_CHAR, MPI_MAX, MPI_COMM_WORLD);
+  unsigned char uc_local_min = local_min;
+  unsigned char uc_local_max = local_max;
+  unsigned char uc_global_min = 0;
+  unsigned char uc_global_max = 0;
+
+  MPI_Allreduce(&uc_local_min, &uc_global_min, 1, MPI_UNSIGNED_CHAR, MPI_MIN, MPI_COMM_WORLD);
+  MPI_Allreduce(&uc_local_max, &uc_global_max, 1, MPI_UNSIGNED_CHAR, MPI_MAX, MPI_COMM_WORLD);
+
+  global_min = uc_global_min;
+  global_max = uc_global_max;
 }
 
 std::vector<uint8_t> ProcessLocalPixels(const std::vector<uint8_t> &local_pixels, uint8_t global_min,
@@ -65,18 +73,14 @@ std::vector<uint8_t> ProcessLocalPixels(const std::vector<uint8_t> &local_pixels
 
   double scale = static_cast<double>(kMaxPixelValue - kMinPixelValue) / static_cast<double>(global_max - global_min);
 
-  for (uint8_t pixel : local_pixels) {
+  for (auto pixel : local_pixels) {
     double new_value = static_cast<double>(pixel - global_min) * scale;
-
     double clamped_value = new_value + 0.5;
-    if (clamped_value < 0.0) {
-      clamped_value = 0.0;
-    }
-    if (clamped_value > 255.0) {
-      clamped_value = 255.0;
-    }
 
-    uint8_t enhanced_pixel = static_cast<uint8_t>(clamped_value);
+    clamped_value = std::max(clamped_value, 0.0);
+    clamped_value = std::min(clamped_value, 255.0);
+
+    auto enhanced_pixel = static_cast<uint8_t>(clamped_value);
     local_result.push_back(enhanced_pixel);
   }
 
@@ -109,7 +113,14 @@ void GatherResults(int rank, int size, const std::vector<uint8_t> &local_result,
     final_output.resize(total_size + 2);
   }
 
-  MPI_Gatherv(local_result.data(), local_size, MPI_UNSIGNED_CHAR, (rank == 0) ? final_output.data() + 2 : nullptr,
+  std::vector<unsigned char> uc_local_result(local_result.begin(), local_result.end());
+  std::vector<unsigned char> uc_final_output;
+
+  if (rank == 0) {
+    uc_final_output.resize(final_output.size());
+  }
+
+  MPI_Gatherv(uc_local_result.data(), local_size, MPI_UNSIGNED_CHAR, (rank == 0) ? uc_final_output.data() + 2 : nullptr,
               recv_counts.data(), displs.data(), MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD);
 
   int total_output_size = 0;
@@ -119,19 +130,30 @@ void GatherResults(int rank, int size, const std::vector<uint8_t> &local_result,
 
   MPI_Bcast(&total_output_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-  if (rank != 0) {
+  if (rank == 0) {
+    final_output.assign(uc_final_output.begin(), uc_final_output.end());
+  } else {
     final_output.resize(total_output_size);
   }
 
-  MPI_Bcast(final_output.data(), total_output_size, MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD);
+  std::vector<unsigned char> uc_bcast_buffer(total_output_size);
+  if (rank == 0) {
+    uc_bcast_buffer.assign(final_output.begin(), final_output.end());
+  }
+
+  MPI_Bcast(uc_bcast_buffer.data(), total_output_size, MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD);
+
+  if (rank != 0) {
+    final_output.assign(uc_bcast_buffer.begin(), uc_bcast_buffer.end());
+  }
 }
 
 bool ContrastEnhancementMPI::RunImpl() {
   const auto &input = GetInput();
 
   try {
-    int rank;
-    int size;
+    int rank = 0;
+    int size = 0;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
@@ -170,10 +192,10 @@ bool ContrastEnhancementMPI::RunImpl() {
       }
     }
 
-    uint8_t local_min;
-    uint8_t local_max;
-    uint8_t global_min;
-    uint8_t global_max;
+    uint8_t local_min = 0;
+    uint8_t local_max = 0;
+    uint8_t global_min = 0;
+    uint8_t global_max = 0;
     FindGlobalMinMax(local_pixels, local_min, local_max, global_min, global_max);
 
     std::vector<uint8_t> local_result = ProcessLocalPixels(local_pixels, global_min, global_max);
