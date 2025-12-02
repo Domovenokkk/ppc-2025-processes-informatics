@@ -12,10 +12,11 @@
 namespace mityaeva_d_contrast_enhancement_histogram_stretching {
 
 class ContrastEnhancementRunPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
-  const int kImageSize_ = 40490;
+  const int kImageSize_ = 512;  // Изменено с 40490 на 512 для реалистичного размера
   InType input_data_;
 
   void SetUp() override {
+    // Создаем реалистичное изображение для теста производительности
     int width = kImageSize_;
     int height = kImageSize_;
     int total_pixels = width * height;
@@ -23,6 +24,7 @@ class ContrastEnhancementRunPerfTests : public ppc::util::BaseRunPerfTests<InTyp
     input_data_.clear();
     input_data_.reserve(2 + total_pixels);
 
+    // Убедимся, что размеры помещаются в uint8_t
     width = std::min(width, 255);
     height = std::min(height, 255);
     total_pixels = width * height;
@@ -30,10 +32,12 @@ class ContrastEnhancementRunPerfTests : public ppc::util::BaseRunPerfTests<InTyp
     input_data_.push_back(static_cast<uint8_t>(width));
     input_data_.push_back(static_cast<uint8_t>(height));
 
+    // Создаем более реалистичное изображение с градиентом
     for (int i = 0; i < total_pixels; ++i) {
       int y = i / width;
       int x = i % width;
-      auto pixel_value = static_cast<uint8_t>((x + y) % 256);
+      // Создаем паттерн, который требует реальной обработки
+      auto pixel_value = static_cast<uint8_t>((x * y) % 256);
       input_data_.push_back(pixel_value);
     }
   }
@@ -50,14 +54,25 @@ class ContrastEnhancementRunPerfTests : public ppc::util::BaseRunPerfTests<InTyp
     int out_width = static_cast<int>(output_data[0]);
     int out_height = static_cast<int>(output_data[1]);
 
+    // Проверяем, что размеры соответствуют входным
     int expected_pixels = out_width * out_height;
     size_t expected_size = static_cast<size_t>(expected_pixels) + 2;
 
     if (output_data.size() != expected_size) {
       return false;
     }
+
+    // Проверяем, что есть пиксели для обработки
     if (output_data.size() <= 2) {
       return false;
+    }
+
+    // Дополнительная проверка: убедимся, что значения пикселей в допустимом диапазоне
+    for (size_t i = 2; i < output_data.size(); ++i) {
+      uint8_t pixel = output_data[i];
+      if (pixel > kMaxPixelValue) {  // kMaxPixelValue должно быть определено в common.hpp
+        return false;
+      }
     }
 
     return true;
