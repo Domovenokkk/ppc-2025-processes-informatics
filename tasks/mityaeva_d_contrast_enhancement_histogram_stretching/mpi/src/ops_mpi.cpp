@@ -107,7 +107,6 @@ void GatherResults(int rank, int size, const std::vector<uint8_t> &local_result,
     final_output.resize(total_size + 2);
   }
 
-  // Создаем неконстантную копию данных для MPI_Gatherv
   std::vector<uint8_t> local_result_copy = local_result;
 
   MPI_Gatherv(local_result_copy.data(), local_size, MPI_UNSIGNED_CHAR,
