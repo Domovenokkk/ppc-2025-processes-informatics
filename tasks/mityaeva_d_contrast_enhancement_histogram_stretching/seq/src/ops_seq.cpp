@@ -29,10 +29,6 @@ bool ContrastEnhancementSEQ::ValidationImpl() {
     return false;
   }
 
-  if (width_ > 10000 || height_ > 10000) {
-    return false;
-  }
-
   total_pixels_ = width_ * height_;
 
   return input.size() == static_cast<size_t>(total_pixels_) + 2;
@@ -58,37 +54,59 @@ bool ContrastEnhancementSEQ::PreProcessingImpl() {
 }
 
 bool ContrastEnhancementSEQ::RunImpl() {
-  const auto &input = GetInput();
-
   try {
-    std::vector<uint8_t> result;
-    result.reserve(input.size());
+    const auto &input = GetInput();
+    const size_t input_size = input.size();
 
+    // Быстрая проверка
+    if (input_size < 2) {
+      return false;
+    }
+
+    // Создаем результат напрямую, без промежуточного вектора
+    OutType result;
+
+    // Добавляем размеры изображения
     result.push_back(static_cast<uint8_t>(width_));
     result.push_back(static_cast<uint8_t>(height_));
 
+    // Если все пиксели одинаковые, просто копируем
     if (min_pixel_ == max_pixel_) {
-      for (size_t i = 2; i < input.size(); ++i) {
+      // Резервируем память для эффективности
+      result.reserve(input_size);
+
+      // Копируем все пиксели, начиная с индекса 2
+      for (size_t i = 2; i < input_size; ++i) {
         result.push_back(input[i]);
       }
-      GetOutput() = std::move(result);
-      return true;
+    } else {
+      // Вычисляем коэффициент растяжки
+      double scale =
+          static_cast<double>(MAX_PIXEL_VALUE - MIN_PIXEL_VALUE) / static_cast<double>(max_pixel_ - min_pixel_);
+
+      // Резервируем память для эффективности
+      result.reserve(input_size);
+
+      // Обрабатываем все пиксели
+      for (size_t i = 2; i < input_size; ++i) {
+        uint8_t pixel = input[i];
+        double new_value = static_cast<double>(pixel - min_pixel_) * scale;
+
+        // Округляем и ограничиваем диапазон
+        double rounded_value = new_value + 0.5;
+        if (rounded_value < 0.0) {
+          rounded_value = 0.0;
+        }
+        if (rounded_value > 255.0) {
+          rounded_value = 255.0;
+        }
+
+        result.push_back(static_cast<uint8_t>(rounded_value));
+      }
     }
 
-    double scale =
-        static_cast<double>(MAX_PIXEL_VALUE - MIN_PIXEL_VALUE) / static_cast<double>(max_pixel_ - min_pixel_);
-
-    for (size_t i = 2; i < input.size(); ++i) {
-      uint8_t pixel = input[i];
-
-      double new_value = static_cast<double>(pixel - min_pixel_) * scale;
-
-      uint8_t enhanced_pixel = static_cast<uint8_t>(std::clamp(new_value + 0.5, 0.0, 255.0));
-
-      result.push_back(enhanced_pixel);
-    }
-
-    GetOutput() = std::move(result);
+    // Устанавливаем результат
+    GetOutput().swap(result);
     return true;
 
   } catch (...) {
@@ -114,11 +132,10 @@ bool ContrastEnhancementSEQ::PostProcessingImpl() {
     return false;
   }
 
-  for (size_t i = 2; i < output.size(); ++i) {
-    uint8_t pixel = output[i];
-    if (pixel < MIN_PIXEL_VALUE || pixel > MAX_PIXEL_VALUE) {
-      return false;
-    }
+  // Проверка диапазона не нужна для uint8_t, так как он всегда 0-255
+  // Но можно проверить, что данные вообще есть
+  if (output.size() <= 2) {
+    return false;
   }
 
   return true;
