@@ -1,9 +1,9 @@
 #include "mityaeva_d_contrast_enhancement_histogram_stretching/seq/include/ops_seq.hpp"
 
-#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 #include "mityaeva_d_contrast_enhancement_histogram_stretching/common/include/common.hpp"
@@ -43,12 +43,8 @@ bool ContrastEnhancementSEQ::PreProcessingImpl() {
 
   for (size_t i = 2; i < input.size(); ++i) {
     uint8_t pixel = input[i];
-    if (pixel < min_pixel_) {
-      min_pixel_ = pixel;
-    }
-    if (pixel > max_pixel_) {
-      max_pixel_ = pixel;
-    }
+    min_pixel_ = std::min(pixel, min_pixel_);
+    max_pixel_ = std::max(pixel, max_pixel_);
   }
 
   return true;
@@ -76,12 +72,8 @@ bool ContrastEnhancementSEQ::RunImpl() {
 
         int rounded_value = static_cast<int>(std::round(stretched_value));
 
-        if (rounded_value < 0) {
-          rounded_value = 0;
-        }
-        if (rounded_value > 255) {
-          rounded_value = 255;
-        }
+        rounded_value = std::max(rounded_value, 0);
+        rounded_value = std::min(rounded_value, 255);
 
         result.push_back(static_cast<uint8_t>(rounded_value));
       }
