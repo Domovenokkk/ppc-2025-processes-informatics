@@ -56,15 +56,33 @@ TEST_P(RychkovaRunFuncTestsMatrixColumns, SumMatrixColumnsTest) {
   ExecuteTest(GetParam());
 }
 
-const std::array<TestType, 4> kTestParam = {
-    std::make_tuple(std::vector<std::vector<int>>{}, std::vector<int>{}, "empty_matrix"),
-
+const std::array<TestType, 12> kTestParam = {
     std::make_tuple(std::vector<std::vector<int>>{{5}}, std::vector<int>{5}, "1x1_matrix"),
-
     std::make_tuple(std::vector<std::vector<int>>{{1, 2, 3}, {4, 5, 6}}, std::vector<int>{5, 7, 9}, "2x3_matrix"),
-
     std::make_tuple(std::vector<std::vector<int>>{{1, -2}, {-3, 4}, {5, -6}}, std::vector<int>{3, -4},
-                    "3x2_matrix_with_negatives")};
+                    "3x2_matrix_with_negatives"),
+
+    std::make_tuple(std::vector<std::vector<int>>{{0, 0, 0}, {0, 0, 0}}, std::vector<int>{0, 0, 0}, "zeros_2x3"),
+
+    std::make_tuple(std::vector<std::vector<int>>{{1}, {2}, {3}, {4}}, std::vector<int>{10}, "4x1_matrix"),
+
+    std::make_tuple(std::vector<std::vector<int>>{{1, 2}}, std::vector<int>{1, 2}, "1x2_matrix"),
+
+    std::make_tuple(std::vector<std::vector<int>>{{1000000000, 1}, {1, 1000000000}},
+                    std::vector<int>{1000000001, 1000000001}, "large_values"),
+
+    std::make_tuple(std::vector<std::vector<int>>{{-1000000000, -1}, {-1, -1000000000}},
+                    std::vector<int>{-1000000001, -1000000001}, "large_negative_values"),
+
+    std::make_tuple(std::vector<std::vector<int>>{{100, 200, 300}, {-100, -200, -300}, {50, -50, 0}},
+                    std::vector<int>{50, -50, 0}, "mixed_values_3x3"),
+
+    std::make_tuple(std::vector<std::vector<int>>{{1, 2, 3, 4, 5}}, std::vector<int>{1, 2, 3, 4, 5}, "wide_matrix_1x5"),
+
+    std::make_tuple(std::vector<std::vector<int>>{{1}, {2}, {3}, {4}, {5}}, std::vector<int>{15}, "tall_matrix_5x1"),
+
+    std::make_tuple(std::vector<std::vector<int>>{{-1, -2, -3}, {-4, -5, -6}}, std::vector<int>{-5, -7, -9},
+                    "all_negative_2x3")};
 
 const auto kTestTasksList = std::tuple_cat(ppc::util::AddFuncTask<RychkovaDSumMatrixColumnsMPI, InType>(
                                                kTestParam, PPC_SETTINGS_rychkova_d_sum_matrix_columns),
