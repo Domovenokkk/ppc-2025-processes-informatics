@@ -1,5 +1,6 @@
 #include "mityaeva_d_contrast_enhancement_histogram_stretching/seq/include/ops_seq.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>

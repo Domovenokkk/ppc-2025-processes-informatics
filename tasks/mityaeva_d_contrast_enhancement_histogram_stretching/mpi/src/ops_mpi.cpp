@@ -13,6 +13,68 @@
 
 namespace mityaeva_d_contrast_enhancement_histogram_stretching {
 
+namespace {
+std::vector<uint8_t> GatherLocalPixels(const std::vector<uint8_t> &input, int my_pixels, int my_offset) {
+  std::vector<uint8_t> local_pixels;
+
+  if (my_pixels > 0) {
+    local_pixels.reserve(my_pixels);
+    size_t start_idx = 2 + my_offset;
+
+    for (int i = 0; i < my_pixels; ++i) {
+      if (start_idx + i < input.size()) {
+        local_pixels.push_back(input[start_idx + i]);
+      }
+    }
+  }
+
+  return local_pixels;
+}
+
+std::pair<uint8_t, uint8_t> FindGlobalMinMax(const std::vector<uint8_t> &local_pixels) {
+  unsigned char local_min = 255;
+  unsigned char local_max = 0;
+
+  for (uint8_t pixel : local_pixels) {
+    auto pixel_uc = static_cast<unsigned char>(pixel);
+    local_min = std::min(pixel_uc, local_min);
+    local_max = std::max(pixel_uc, local_max);
+  }
+
+  unsigned char global_min = 0;
+  unsigned char global_max = 0;
+  MPI_Allreduce(&local_min, &global_min, 1, MPI_UNSIGNED_CHAR, MPI_MIN, MPI_COMM_WORLD);
+  MPI_Allreduce(&local_max, &global_max, 1, MPI_UNSIGNED_CHAR, MPI_MAX, MPI_COMM_WORLD);
+
+  return std::make_pair(static_cast<uint8_t>(global_min), static_cast<uint8_t>(global_max));
+}
+
+std::vector<uint8_t> ProcessLocalPixels(const std::vector<uint8_t> &local_pixels, uint8_t global_min,
+                                        uint8_t global_max) {
+  std::vector<uint8_t> local_result;
+
+  if (global_min == global_max) {
+    local_result = local_pixels;
+    return local_result;
+  }
+
+  double scale = 255.0 / static_cast<double>(global_max - global_min);
+  local_result.reserve(local_pixels.size());
+
+  for (uint8_t pixel : local_pixels) {
+    double stretched_value = static_cast<double>(pixel - global_min) * scale;
+    int rounded_value = static_cast<int>(std::round(stretched_value));
+
+    rounded_value = std::max(rounded_value, 0);
+    rounded_value = std::min(rounded_value, 255);
+
+    local_result.push_back(static_cast<uint8_t>(rounded_value));
+  }
+
+  return local_result;
+}
+}  // namespace
+
 ContrastEnhancementMPI::ContrastEnhancementMPI(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
@@ -59,66 +121,6 @@ void ContrastEnhancementMPI::CalculateDistribution(int rank, int size, int &my_p
     }
     my_offset += prev_pixels;
   }
-}
-
-static std::vector<uint8_t> GatherLocalPixels(const std::vector<uint8_t> &input, int my_pixels, int my_offset) {
-  std::vector<uint8_t> local_pixels;
-
-  if (my_pixels > 0) {
-    local_pixels.reserve(my_pixels);
-    size_t start_idx = 2 + my_offset;
-
-    for (int i = 0; i < my_pixels; ++i) {
-      if (start_idx + i < input.size()) {
-        local_pixels.push_back(input[start_idx + i]);
-      }
-    }
-  }
-
-  return local_pixels;
-}
-
-static std::pair<uint8_t, uint8_t> FindGlobalMinMax(const std::vector<uint8_t> &local_pixels) {
-  unsigned char local_min = 255;
-  unsigned char local_max = 0;
-
-  for (uint8_t pixel : local_pixels) {
-    unsigned char pixel_uc = static_cast<unsigned char>(pixel);
-    local_min = std::min(pixel_uc, local_min);
-    local_max = std::max(pixel_uc, local_max);
-  }
-
-  unsigned char global_min;
-  unsigned char global_max;
-  MPI_Allreduce(&local_min, &global_min, 1, MPI_UNSIGNED_CHAR, MPI_MIN, MPI_COMM_WORLD);
-  MPI_Allreduce(&local_max, &global_max, 1, MPI_UNSIGNED_CHAR, MPI_MAX, MPI_COMM_WORLD);
-
-  return std::make_pair(static_cast<uint8_t>(global_min), static_cast<uint8_t>(global_max));
-}
-
-static std::vector<uint8_t> ProcessLocalPixels(const std::vector<uint8_t> &local_pixels, uint8_t global_min,
-                                               uint8_t global_max) {
-  std::vector<uint8_t> local_result;
-
-  if (global_min == global_max) {
-    local_result = local_pixels;
-    return local_result;
-  }
-
-  double scale = 255.0 / static_cast<double>(global_max - global_min);
-  local_result.reserve(local_pixels.size());
-
-  for (uint8_t pixel : local_pixels) {
-    double stretched_value = static_cast<double>(pixel - global_min) * scale;
-    int rounded_value = static_cast<int>(std::round(stretched_value));
-
-    rounded_value = std::max(rounded_value, 0);
-    rounded_value = std::min(rounded_value, 255);
-
-    local_result.push_back(static_cast<uint8_t>(rounded_value));
-  }
-
-  return local_result;
 }
 
 void ContrastEnhancementMPI::GatherResults(int rank, int size, const std::vector<uint8_t> &local_result,

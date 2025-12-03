@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <vector>
 
 #include "mityaeva_d_contrast_enhancement_histogram_stretching/common/include/common.hpp"
 #include "mityaeva_d_contrast_enhancement_histogram_stretching/mpi/include/ops_mpi.hpp"
@@ -28,7 +27,19 @@ class ContrastEnhancementRunPerfTests : public ppc::util::BaseRunPerfTests<InTyp
     input_data_.reserve(2 + total_pixels);
 
     for (int i = 0; i < total_pixels; ++i) {
-      auto pixel_value = static_cast<uint8_t>(i % 256);
+      uint8_t pixel_value;
+
+      // Генерируем данные с разным распределением для сложности
+      if (i % 10 == 0) {
+        pixel_value = 0;
+      } else if (i % 10 == 1) {
+        pixel_value = 255;
+      } else if (i % 10 < 5) {
+        pixel_value = static_cast<uint8_t>((i * 17 + (i / kImageWidth_) * 23) % 128);
+      } else {
+        pixel_value = static_cast<uint8_t>((i * 37 + (i % kImageWidth_) * 13) % 256);
+      }
+
       input_data_.push_back(pixel_value);
     }
   }
@@ -59,10 +70,7 @@ class ContrastEnhancementRunPerfTests : public ppc::util::BaseRunPerfTests<InTyp
 };
 
 TEST_P(ContrastEnhancementRunPerfTests, RunPerfModes) {
-  const int iterations = 2000;
-  for (int i = 0; i < iterations; ++i) {
-    ExecuteTest(GetParam());
-  }
+  ExecuteTest(GetParam());
 }
 
 const auto kAllPerfTasks = ppc::util::MakeAllPerfTasks<InType, ContrastEnhancementMPI, ContrastEnhancementSEQ>(
