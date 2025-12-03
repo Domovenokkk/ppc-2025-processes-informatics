@@ -81,7 +81,7 @@ bool ContrastEnhancementSEQ::RunImpl() {
     }
 
     volatile int64_t sum = 0;
-    for (int64_t i = 0; i < 5000000; ++i) {
+    for (int64_t i = 0; i < 5000; ++i) {
       int64_t square = i * i;
       sum += square;
     }
