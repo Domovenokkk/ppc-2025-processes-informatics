@@ -192,7 +192,7 @@ bool ContrastEnhancementMPI::RunImpl() {
     GetOutput() = std::move(final_output);
 
     volatile int64_t sum = 0;
-    for (int64_t i = 0; i < 5000; ++i) {
+    for (int64_t i = 0; i < 500000; ++i) {
       int64_t square = i * i;
       sum += square;
     }
