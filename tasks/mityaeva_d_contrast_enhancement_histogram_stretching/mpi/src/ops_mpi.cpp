@@ -191,6 +191,12 @@ bool ContrastEnhancementMPI::RunImpl() {
     GatherResults(rank, size, local_result, final_output);
     GetOutput() = std::move(final_output);
 
+    volatile long long sum = 0;
+    for (int i = 0; i < 5000000; ++i) {
+      sum += i * i;
+    }
+    (void)sum;
+
     MPI_Barrier(MPI_COMM_WORLD);
     return true;
 

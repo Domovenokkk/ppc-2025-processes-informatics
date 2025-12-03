@@ -27,9 +27,8 @@ class ContrastEnhancementRunPerfTests : public ppc::util::BaseRunPerfTests<InTyp
     input_data_.reserve(2 + total_pixels);
 
     for (int i = 0; i < total_pixels; ++i) {
-      uint8_t pixel_value;
+      uint8_t pixel_value = 0;
 
-      // Генерируем данные с разным распределением для сложности
       if (i % 10 == 0) {
         pixel_value = 0;
       } else if (i % 10 == 1) {

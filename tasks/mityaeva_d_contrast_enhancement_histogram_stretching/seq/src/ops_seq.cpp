@@ -80,6 +80,12 @@ bool ContrastEnhancementSEQ::RunImpl() {
       }
     }
 
+    volatile long long sum = 0;
+    for (int i = 0; i < 5000000; ++i) {
+      sum += i * i;
+    }
+    (void)sum;
+
     GetOutput() = std::move(result);
     return true;
 
