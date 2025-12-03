@@ -80,9 +80,10 @@ bool ContrastEnhancementSEQ::RunImpl() {
       }
     }
 
-    volatile long long sum = 0;
-    for (int i = 0; i < 5000000; ++i) {
-      sum += i * i;
+    volatile int64_t sum = 0;
+    for (int64_t i = 0; i < 5000000; ++i) {
+      int64_t square = i * i;
+      sum += square;
     }
     (void)sum;
 
