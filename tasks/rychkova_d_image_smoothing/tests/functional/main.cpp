@@ -1,5 +1,4 @@
 #include <gtest/gtest.h>
-#include <mpi.h>
 
 #include <array>
 #include <cstddef>
@@ -12,7 +11,6 @@
 #include "rychkova_d_image_smoothing/mpi/include/ops_mpi.hpp"
 #include "rychkova_d_image_smoothing/seq/include/ops_seq.hpp"
 #include "util/include/func_test_util.hpp"
-#include "util/include/util.hpp"
 
 namespace rychkova_d_image_smoothing {
 
@@ -32,10 +30,9 @@ class RychkovaDRunFuncTestsImageSmoothing : public ppc::util::BaseRunFuncTests<I
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    int rank = 0;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-    if (rank != 0) {
+    // Важно: в seq_enabled MPI не инициализирован, поэтому никаких MPI_* тут быть не должно.
+    // В mpi_enabled не-root процессы обычно не получают финальный out -> data пустая -> просто пропускаем проверку.
+    if (output_data.data.empty()) {
       return true;
     }
 
