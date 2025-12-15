@@ -111,13 +111,8 @@ bool ImageSmoothingMPI::RunImpl() {
   }
 
   std::size_t local_rows = 0;
-  std::size_t local_start = 0;
   if (rank < size_eff) {
     local_rows = base + ((static_cast<std::size_t>(rank) < rem) ? 1 : 0);
-    local_start = 0;
-    for (int r = 0; r < rank; ++r) {
-      local_start += base + ((static_cast<std::size_t>(r) < rem) ? 1 : 0);
-    }
   }
 
   std::vector<uint8_t> local_in(local_rows * row_size);
