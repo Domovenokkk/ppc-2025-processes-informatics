@@ -24,14 +24,12 @@ class RychkovaDRunFuncTestsImageSmoothing : public ppc::util::BaseRunFuncTests<I
 
  protected:
   void SetUp() override {
-    TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
+    const auto params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
     input_data_ = std::get<0>(params);
     expected_ = ReferenceSmooth3x3Clamp(input_data_);
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    // Важно: в seq_enabled MPI не инициализирован, поэтому никаких MPI_* тут быть не должно.
-    // В mpi_enabled не-root процессы обычно не получают финальный out -> data пустая -> просто пропускаем проверку.
     if (output_data.data.empty()) {
       return true;
     }
@@ -57,7 +55,7 @@ class RychkovaDRunFuncTestsImageSmoothing : public ppc::util::BaseRunFuncTests<I
   }
 
  private:
-  static Image MakeConst(std::size_t w, std::size_t h, std::size_t ch, uint8_t v) {
+  static Image MakeConst(std::size_t w, std::size_t h, std::size_t ch, std::uint8_t v) {
     Image img;
     img.width = w;
     img.height = h;
@@ -73,11 +71,11 @@ class RychkovaDRunFuncTestsImageSmoothing : public ppc::util::BaseRunFuncTests<I
     img.channels = ch;
     img.data.resize(w * h * ch);
 
-    for (std::size_t y = 0; y < h; ++y) {
-      for (std::size_t x = 0; x < w; ++x) {
-        for (std::size_t c = 0; c < ch; ++c) {
-          const std::size_t idx = (y * w + x) * ch + c;
-          img.data[idx] = static_cast<uint8_t>((idx * 37u + 13u) % 256u);
+    for (std::size_t yy = 0; yy < h; ++yy) {
+      for (std::size_t xx = 0; xx < w; ++xx) {
+        for (std::size_t cc = 0; cc < ch; ++cc) {
+          const auto idx = ((yy * w) + xx) * ch + cc;
+          img.data[idx] = static_cast<std::uint8_t>((idx * 37 + 13) % 256);
         }
       }
     }
@@ -95,7 +93,7 @@ class RychkovaDRunFuncTestsImageSmoothing : public ppc::util::BaseRunFuncTests<I
     const std::size_t h = in.height;
     const std::size_t ch = in.channels;
 
-    auto clamp_ll = [](long long v, long long lo, long long hi) -> long long {
+    auto clamp_i64 = [](std::int64_t v, std::int64_t lo, std::int64_t hi) {
       if (v < lo) {
         return lo;
       }
@@ -105,30 +103,30 @@ class RychkovaDRunFuncTestsImageSmoothing : public ppc::util::BaseRunFuncTests<I
       return v;
     };
 
-    for (std::size_t y = 0; y < h; ++y) {
-      for (std::size_t x = 0; x < w; ++x) {
-        for (std::size_t c = 0; c < ch; ++c) {
+    for (std::size_t yy = 0; yy < h; ++yy) {
+      for (std::size_t xx = 0; xx < w; ++xx) {
+        for (std::size_t cc = 0; cc < ch; ++cc) {
           int sum = 0;
 
           for (int dy = -1; dy <= 1; ++dy) {
-            long long ny = clamp_ll(static_cast<long long>(y) + dy, 0LL, static_cast<long long>(h) - 1LL);
-            for (int dx = -1; dx <= 1; ++dx) {
-              long long nx = clamp_ll(static_cast<long long>(x) + dx, 0LL, static_cast<long long>(w) - 1LL);
+            const auto ny = clamp_i64(static_cast<std::int64_t>(yy) + dy, 0, static_cast<std::int64_t>(h) - 1);
 
-              const std::size_t ix = static_cast<std::size_t>(nx);
-              const std::size_t iy = static_cast<std::size_t>(ny);
-              const std::size_t idx = (iy * w + ix) * ch + c;
+            for (int dx = -1; dx <= 1; ++dx) {
+              const auto nx = clamp_i64(static_cast<std::int64_t>(xx) + dx, 0, static_cast<std::int64_t>(w) - 1);
+
+              const auto ix = static_cast<std::size_t>(nx);
+              const auto iy = static_cast<std::size_t>(ny);
+              const auto idx = ((iy * w) + ix) * ch + cc;
 
               sum += static_cast<int>(in.data[idx]);
             }
           }
 
-          const std::size_t out_idx = (y * w + x) * ch + c;
-          out.data[out_idx] = static_cast<uint8_t>(sum / 9);
+          const auto out_idx = ((yy * w) + xx) * ch + cc;
+          out.data[out_idx] = static_cast<std::uint8_t>(sum / 9);
         }
       }
     }
-
     return out;
   }
 
@@ -137,9 +135,10 @@ class RychkovaDRunFuncTestsImageSmoothing : public ppc::util::BaseRunFuncTests<I
   OutType expected_{};
 
  public:
-  static TestType ParamConst(std::size_t w, std::size_t h, std::size_t ch, uint8_t v, const std::string &name) {
+  static TestType ParamConst(std::size_t w, std::size_t h, std::size_t ch, std::uint8_t v, const std::string &name) {
     return std::make_tuple(MakeConst(w, h, ch, v), name);
   }
+
   static TestType ParamPattern(std::size_t w, std::size_t h, std::size_t ch, const std::string &name) {
     return std::make_tuple(MakePattern(w, h, ch), name);
   }
@@ -169,5 +168,4 @@ const auto kTestName = RychkovaDRunFuncTestsImageSmoothing::PrintFuncTestName<Ry
 INSTANTIATE_TEST_SUITE_P(ImageSmoothingTests, RychkovaDRunFuncTestsImageSmoothing, kGtestValues, kTestName);
 
 }  // namespace
-
 }  // namespace rychkova_d_image_smoothing

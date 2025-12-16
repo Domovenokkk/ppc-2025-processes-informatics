@@ -24,7 +24,7 @@ class RychkovaDRunPerfTestsImageSmoothing : public ppc::util::BaseRunPerfTests<I
     input_data_.data.resize(w * h * ch);
 
     for (std::size_t i = 0; i < input_data_.data.size(); ++i) {
-      input_data_.data[i] = static_cast<uint8_t>((i * 37u + 13u) % 256u);
+      input_data_.data[i] = static_cast<std::uint8_t>((i * 37 + 13) % 256);
     }
   }
 
