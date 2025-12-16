@@ -64,13 +64,13 @@ bool ImageSmoothingSEQ::RunImpl() {
           for (int dx = -1; dx <= 1; ++dx) {
             const auto nx = ClampCoord(static_cast<std::int64_t>(xx) + dx, width);
 
-            const auto idx = ((ny * width) + nx) * channels + cc;
+            const auto idx = (((ny * width) + nx) * channels) + cc;
 
             sum += static_cast<int>(in.data[idx]);
           }
         }
 
-        const auto out_idx = ((yy * width) + xx) * channels + cc;
+        const auto out_idx = (((yy * width) + xx) * channels) + cc;
         out.data[out_idx] = static_cast<std::uint8_t>(sum / 9);
       }
     }

@@ -11,6 +11,7 @@
 #include "rychkova_d_image_smoothing/mpi/include/ops_mpi.hpp"
 #include "rychkova_d_image_smoothing/seq/include/ops_seq.hpp"
 #include "util/include/func_test_util.hpp"
+#include "util/include/util.hpp"
 
 namespace rychkova_d_image_smoothing {
 
@@ -74,7 +75,7 @@ class RychkovaDRunFuncTestsImageSmoothing : public ppc::util::BaseRunFuncTests<I
     for (std::size_t yy = 0; yy < h; ++yy) {
       for (std::size_t xx = 0; xx < w; ++xx) {
         for (std::size_t cc = 0; cc < ch; ++cc) {
-          const auto idx = ((yy * w) + xx) * ch + cc;
+          const auto idx = (((yy * w) + xx) * ch) + cc;  // FIX 2
           img.data[idx] = static_cast<std::uint8_t>((idx * 37 + 13) % 256);
         }
       }
@@ -116,13 +117,13 @@ class RychkovaDRunFuncTestsImageSmoothing : public ppc::util::BaseRunFuncTests<I
 
               const auto ix = static_cast<std::size_t>(nx);
               const auto iy = static_cast<std::size_t>(ny);
-              const auto idx = ((iy * w) + ix) * ch + cc;
+              const auto idx = (((iy * w) + ix) * ch) + cc;  // FIX 2
 
               sum += static_cast<int>(in.data[idx]);
             }
           }
 
-          const auto out_idx = ((yy * w) + xx) * ch + cc;
+          const auto out_idx = (((yy * w) + xx) * ch) + cc;  // FIX 2
           out.data[out_idx] = static_cast<std::uint8_t>(sum / 9);
         }
       }
@@ -130,7 +131,7 @@ class RychkovaDRunFuncTestsImageSmoothing : public ppc::util::BaseRunFuncTests<I
     return out;
   }
 
- private:
+ private:  // FIX 3: только один private
   InType input_data_{};
   OutType expected_{};
 
