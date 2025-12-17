@@ -2,6 +2,7 @@
 
 #include <mpi.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <vector>
 
@@ -17,8 +18,7 @@ StripedHorizontalMatrixVectorMPI::StripedHorizontalMatrixVectorMPI(const InType 
 
 bool StripedHorizontalMatrixVectorMPI::ValidationImpl() {
   const auto &input = GetInput();
-
-  if (input.empty() || input.size() < 3) {
+  if (input.size() < 3) {
     return false;
   }
 
@@ -28,132 +28,128 @@ bool StripedHorizontalMatrixVectorMPI::ValidationImpl() {
   if (rows <= 0 || cols <= 0) {
     return false;
   }
-
   if (static_cast<int>(input[2]) != cols) {
     return false;
   }
 
-  size_t expected_size = 3 + (static_cast<size_t>(rows) * static_cast<size_t>(cols)) + static_cast<size_t>(cols);
-
-  return input.size() == expected_size;
+  size_t expected = 3 + static_cast<size_t>(rows) * static_cast<size_t>(cols) + static_cast<size_t>(cols);
+  return input.size() == expected;
 }
 
 bool StripedHorizontalMatrixVectorMPI::PreProcessingImpl() {
   return true;
 }
 
-std::vector<double> ProcessLocalRows(const std::vector<double> &input, int start_row, int my_rows, int cols,
-                                     int total_rows) {
-  std::vector<double> local_result;
-  local_result.reserve(my_rows);
-
-  size_t matrix_start_idx = 3;
-  size_t vector_start_idx = matrix_start_idx + (static_cast<size_t>(total_rows) * static_cast<size_t>(cols));
-
-  for (int i = 0; i < my_rows; ++i) {
-    int global_row = start_row + i;
-    double sum = 0.0;
-
-    size_t row_start = matrix_start_idx + (static_cast<size_t>(global_row) * static_cast<size_t>(cols));
-
-    for (int j = 0; j < cols; ++j) {
-      double matrix_element = input[row_start + j];
-      double vector_element = input[vector_start_idx + j];
-      sum += matrix_element * vector_element;
-    }
-
-    local_result.push_back(sum);
+static void CalcRows(int rows, int size, int rank, int &my_rows, int &start_row) {
+  int base = rows / size;
+  int rem = rows % size;
+  my_rows = base + (rank < rem);
+  start_row = 0;
+  for (int r = 0; r < rank; ++r) {
+    start_row += base + (r < rem);
   }
-
-  return local_result;
 }
 
-void GatherResults(int rank, int size, int rows, int rows_per_process, int remainder,
-                   const std::vector<double> &local_result, std::vector<double> &output) {
-  if (rank == 0) {
-    std::vector<double> global_result;
-    global_result.reserve(rows);
+static void BuildScatter(int rows, int cols, int size, std::vector<int> &counts, std::vector<int> &displs) {
+  counts.resize(size);
+  displs.resize(size);
+  int base = rows / size;
+  int rem = rows % size;
+  int d = 0;
+  for (int r = 0; r < size; ++r) {
+    int r_rows = base + (r < rem);
+    counts[r] = r_rows * cols;
+    displs[r] = d;
+    d += counts[r];
+  }
+}
 
-    global_result.insert(global_result.end(), local_result.begin(), local_result.end());
-
-    for (int src = 1; src < size; ++src) {
-      int src_rows = rows_per_process;
-      if (src < remainder) {
-        src_rows++;
-      }
-
-      if (src_rows > 0) {
-        std::vector<double> recv_buffer(src_rows);
-        MPI_Recv(recv_buffer.data(), src_rows, MPI_DOUBLE, src, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        global_result.insert(global_result.end(), recv_buffer.begin(), recv_buffer.end());
-      }
-    }
-
-    output.clear();
-    output.reserve(rows + 1);
-    output.push_back(static_cast<double>(rows));
-
-    output.insert(output.end(), global_result.begin(), global_result.end());
-
-    int output_size = static_cast<int>(output.size());
-    for (int dst = 1; dst < size; ++dst) {
-      MPI_Send(output.data(), output_size, MPI_DOUBLE, dst, 0, MPI_COMM_WORLD);
-    }
-
-  } else {
-    if (!local_result.empty()) {
-      int local_size = static_cast<int>(local_result.size());
-      MPI_Send(local_result.data(), local_size, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
-    }
-
-    int result_size = 0;
-    MPI_Status status;
-    MPI_Probe(0, 0, MPI_COMM_WORLD, &status);
-    MPI_Get_count(&status, MPI_DOUBLE, &result_size);
-
-    std::vector<double> recv_buffer(result_size);
-    MPI_Recv(recv_buffer.data(), result_size, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-    output = recv_buffer;
+static void BuildGather(int rows, int size, std::vector<int> &counts, std::vector<int> &displs) {
+  counts.resize(size);
+  displs.resize(size);
+  int base = rows / size;
+  int rem = rows % size;
+  int d = 0;
+  for (int r = 0; r < size; ++r) {
+    int r_rows = base + (r < rem);
+    counts[r] = r_rows;
+    displs[r] = d;
+    d += counts[r];
   }
 }
 
 bool StripedHorizontalMatrixVectorMPI::RunImpl() {
   const auto &input = GetInput();
-
   try {
-    int rank = 0;
-    int size = 0;
+    int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
     int rows = static_cast<int>(input[0]);
     int cols = static_cast<int>(input[1]);
 
-    int rows_per_process = rows / size;
-    int remainder = rows % size;
+    int my_rows = 0, start_row = 0;
+    CalcRows(rows, size, rank, my_rows, start_row);
 
-    int my_rows = rows_per_process;
-    if (rank < remainder) {
-      my_rows++;
+    std::vector<int> sendcounts, sdispls, recvcounts, rdispls;
+    BuildScatter(rows, cols, size, sendcounts, sdispls);
+    BuildGather(rows, size, recvcounts, rdispls);
+
+    const size_t m_start = 3;
+    const size_t v_start = m_start + static_cast<size_t>(rows) * static_cast<size_t>(cols);
+
+    const double *A = input.data() + m_start;
+    const double *x_all = input.data() + v_start;
+
+    std::vector<double> local_A(static_cast<size_t>(my_rows) * cols);
+    std::vector<double> x(cols);
+
+    if (rank == 0) {
+      std::copy(x_all, x_all + cols, x.begin());
     }
 
-    int start_row = 0;
-    for (int i = 0; i < rank; ++i) {
-      int previous_rows = rows_per_process;
-      if (i < remainder) {
-        previous_rows++;
+    MPI_Scatterv(rank == 0 ? A : nullptr, sendcounts.data(), sdispls.data(), MPI_DOUBLE, local_A.data(), my_rows * cols,
+                 MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+    MPI_Bcast(x.data(), cols, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+    std::vector<double> y_local(my_rows, 0.0);
+    for (int i = 0; i < my_rows; ++i) {
+      double sum = 0.0;
+      for (int j = 0; j < cols; ++j) {
+        sum += local_A[static_cast<size_t>(i) * cols + j] * x[j];
       }
-      start_row += previous_rows;
+      y_local[i] = sum;
     }
 
-    std::vector<double> local_result = ProcessLocalRows(input, start_row, my_rows, cols, rows);
+    std::vector<double> y;
+    if (rank == 0) {
+      y.resize(rows);
+    }
 
-    GatherResults(rank, size, rows, rows_per_process, remainder, local_result, GetOutput());
+    MPI_Gatherv(y_local.data(), my_rows, MPI_DOUBLE, rank == 0 ? y.data() : nullptr, recvcounts.data(), rdispls.data(),
+                MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+    if (rank == 0) {
+      auto &out = GetOutput();
+      out.clear();
+      out.push_back(static_cast<double>(rows));
+      out.insert(out.end(), y.begin(), y.end());
+    }
+
+    int out_size = 0;
+    if (rank == 0) {
+      out_size = static_cast<int>(GetOutput().size());
+    }
+    MPI_Bcast(&out_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    if (rank != 0) {
+      GetOutput().assign(out_size, 0.0);
+    }
+    MPI_Bcast(GetOutput().data(), out_size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
     MPI_Barrier(MPI_COMM_WORLD);
     return true;
-
   } catch (...) {
     return false;
   }
@@ -164,11 +160,8 @@ bool StripedHorizontalMatrixVectorMPI::PostProcessingImpl() {
   if (output.empty()) {
     return false;
   }
-
-  int result_size = static_cast<int>(output[0]);
   int rows = static_cast<int>(GetInput()[0]);
-
-  return result_size == rows && output.size() == static_cast<size_t>(result_size) + 1;
+  return static_cast<int>(output[0]) == rows && output.size() == static_cast<size_t>(rows) + 1;
 }
 
 }  // namespace mityaeva_d_striped_horizontal_matrix_vector
