@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <utility>  // std::cmp_less
 #include <vector>
 
 #include "rychkova_d_image_smoothing/common/include/common.hpp"
@@ -12,8 +13,6 @@
 namespace rychkova_d_image_smoothing {
 
 namespace {
-
-// ---------- helpers (anonymous namespace, как требует clang-tidy) ----------
 
 void BroadcastMeta(std::size_t *width, std::size_t *height, std::size_t *channels) {
   std::uint64_t w64 = 0;
@@ -56,7 +55,8 @@ void BuildCountsDispls(int world_size, int size_eff, std::size_t height, std::si
 
   std::size_t offset = 0;
   for (int pid = 0; pid < size_eff; ++pid) {
-    const std::size_t extra = std::cmp_less(static_cast<std::size_t>(pid), rem) ? 1U : 0U;
+    const auto pid_sz = static_cast<std::size_t>(pid);
+    const std::size_t extra = std::cmp_less(pid_sz, rem) ? 1U : 0U;
     const std::size_t rows = base + extra;
     const std::size_t cnt = rows * row_size;
 
@@ -73,7 +73,8 @@ std::size_t LocalRowsForRank(int rank, int size_eff, std::size_t height) {
 
   const std::size_t base = height / static_cast<std::size_t>(size_eff);
   const std::size_t rem = height % static_cast<std::size_t>(size_eff);
-  const std::size_t extra = std::cmp_less(static_cast<std::size_t>(rank), rem) ? 1U : 0U;
+  const auto rank_sz = static_cast<std::size_t>(rank);
+  const std::size_t extra = std::cmp_less(rank_sz, rem) ? 1U : 0U;
 
   return base + extra;
 }
@@ -84,7 +85,9 @@ void ExchangeHalo(const std::vector<std::uint8_t> &local_in, std::size_t local_r
   halo_bottom->assign(row_size, 0);
 
   if (rank == 0) {
-    std::copy(local_in.begin(), local_in.begin() + row_size, halo_top->begin());
+    for (std::size_t ii = 0; ii < row_size; ++ii) {
+      (*halo_top)[ii] = local_in[ii];
+    }
   } else {
     MPI_Sendrecv(local_in.data(), static_cast<int>(row_size), MPI_UNSIGNED_CHAR, rank - 1, 0, halo_top->data(),
                  static_cast<int>(row_size), MPI_UNSIGNED_CHAR, rank - 1, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -92,7 +95,9 @@ void ExchangeHalo(const std::vector<std::uint8_t> &local_in, std::size_t local_r
 
   const std::size_t last_off = (local_rows - 1U) * row_size;
   if (rank == size_eff - 1) {
-    std::copy(local_in.begin() + last_off, local_in.begin() + last_off + row_size, halo_bottom->begin());
+    for (std::size_t ii = 0; ii < row_size; ++ii) {
+      (*halo_bottom)[ii] = local_in[last_off + ii];
+    }
   } else {
     MPI_Sendrecv(local_in.data() + last_off, static_cast<int>(row_size), MPI_UNSIGNED_CHAR, rank + 1, 1,
                  halo_bottom->data(), static_cast<int>(row_size), MPI_UNSIGNED_CHAR, rank + 1, 0, MPI_COMM_WORLD,
@@ -100,27 +105,33 @@ void ExchangeHalo(const std::vector<std::uint8_t> &local_in, std::size_t local_r
   }
 }
 
+inline const std::uint8_t *SelectRowPtr(const std::vector<std::uint8_t> &local_in,
+                                        const std::vector<std::uint8_t> &halo_top,
+                                        const std::vector<std::uint8_t> &halo_bottom, std::size_t local_y,
+                                        std::size_t local_rows, std::size_t row_size, int dy) {
+  if (dy == -1) {
+    return (local_y == 0U) ? halo_top.data() : (local_in.data() + ((local_y - 1U) * row_size));
+  }
+  if (dy == 0) {
+    return local_in.data() + (local_y * row_size);
+  }
+  return (local_y + 1U == local_rows) ? halo_bottom.data() : (local_in.data() + ((local_y + 1U) * row_size));
+}
+
 inline std::uint8_t SmoothPixel(const std::vector<std::uint8_t> &local_in, const std::vector<std::uint8_t> &halo_top,
-                                const std::vector<std::uint8_t> &halo_bottom, std::size_t local_y, std::size_t x,
-                                std::size_t ch, std::size_t width, std::size_t channels, std::size_t row_size,
+                                const std::vector<std::uint8_t> &halo_bottom, std::size_t local_y, std::size_t x_pos,
+                                std::size_t ch_pos, std::size_t width, std::size_t channels, std::size_t row_size,
                                 std::size_t local_rows) {
   int sum = 0;
 
   for (int dy = -1; dy <= 1; ++dy) {
-    const std::uint8_t *row_ptr = nullptr;
-
-    if (dy == -1) {
-      row_ptr = (local_y == 0U) ? halo_top.data() : local_in.data() + (local_y - 1U) * row_size;
-    } else if (dy == 0) {
-      row_ptr = local_in.data() + local_y * row_size;
-    } else {
-      row_ptr = (local_y + 1U == local_rows) ? halo_bottom.data() : local_in.data() + (local_y + 1U) * row_size;
-    }
+    const std::uint8_t *row_ptr = SelectRowPtr(local_in, halo_top, halo_bottom, local_y, local_rows, row_size, dy);
 
     for (int dx = -1; dx <= 1; ++dx) {
       const auto nx =
-          std::clamp<std::int64_t>(static_cast<std::int64_t>(x) + dx, 0, static_cast<std::int64_t>(width) - 1);
-      sum += row_ptr[static_cast<std::size_t>(nx) * channels + ch];
+          std::clamp<std::int64_t>(static_cast<std::int64_t>(x_pos) + dx, 0, static_cast<std::int64_t>(width) - 1);
+      const auto ix = static_cast<std::size_t>(nx);
+      sum += row_ptr[((ix * channels) + ch_pos)];
     }
   }
 
@@ -135,7 +146,8 @@ void SmoothLocal(const std::vector<std::uint8_t> &local_in, std::size_t local_ro
   for (std::size_t ly = 0; ly < local_rows; ++ly) {
     for (std::size_t xx = 0; xx < width; ++xx) {
       for (std::size_t cc = 0; cc < channels; ++cc) {
-        (*local_out)[(ly * width + xx) * channels + cc] =
+        const auto out_idx = (((ly * width) + xx) * channels) + cc;
+        (*local_out)[out_idx] =
             SmoothPixel(local_in, halo_top, halo_bottom, ly, xx, cc, width, channels, row_size, local_rows);
       }
     }
@@ -143,8 +155,6 @@ void SmoothLocal(const std::vector<std::uint8_t> &local_in, std::size_t local_ro
 }
 
 }  // namespace
-
-// ---------------- task implementation ----------------
 
 ImageSmoothingMPI::ImageSmoothingMPI(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
@@ -155,7 +165,6 @@ ImageSmoothingMPI::ImageSmoothingMPI(const InType &in) {
 bool ImageSmoothingMPI::ValidationImpl() {
   int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
   if (rank != 0) {
     return true;
   }
@@ -167,7 +176,6 @@ bool ImageSmoothingMPI::ValidationImpl() {
   if (in.channels != 1 && in.channels != 3) {
     return false;
   }
-
   return in.data.size() == in.width * in.height * in.channels;
 }
 
@@ -185,7 +193,6 @@ bool ImageSmoothingMPI::PreProcessingImpl() {
   } else {
     GetOutput() = {};
   }
-
   return true;
 }
 
@@ -195,7 +202,10 @@ bool ImageSmoothingMPI::RunImpl() {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
-  std::size_t width = 0, height = 0, channels = 0;
+  std::size_t width = 0;
+  std::size_t height = 0;
+  std::size_t channels = 0;
+
   if (rank == 0) {
     width = GetInput().width;
     height = GetInput().height;
@@ -210,7 +220,8 @@ bool ImageSmoothingMPI::RunImpl() {
   const std::size_t row_size = width * channels;
   const int size_eff = EffectiveSize(world_size, height);
 
-  std::vector<int> counts, displs;
+  std::vector<int> counts;
+  std::vector<int> displs;
   BuildCountsDispls(world_size, size_eff, height, row_size, &counts, &displs);
 
   const std::size_t local_rows = LocalRowsForRank(rank, size_eff, height);
@@ -219,6 +230,7 @@ bool ImageSmoothingMPI::RunImpl() {
   std::vector<std::uint8_t> local_out;
 
   const auto *sendbuf = (rank == 0) ? GetInput().data.data() : nullptr;
+
   MPI_Scatterv(sendbuf, counts.data(), displs.data(), MPI_UNSIGNED_CHAR, local_in.empty() ? nullptr : local_in.data(),
                static_cast<int>(local_in.size()), MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD);
 
@@ -230,7 +242,8 @@ bool ImageSmoothingMPI::RunImpl() {
     return true;
   }
 
-  std::vector<std::uint8_t> halo_top, halo_bottom;
+  std::vector<std::uint8_t> halo_top;
+  std::vector<std::uint8_t> halo_bottom;
   ExchangeHalo(local_in, local_rows, row_size, rank, size_eff, &halo_top, &halo_bottom);
 
   SmoothLocal(local_in, local_rows, width, channels, row_size, halo_top, halo_bottom, &local_out);
@@ -263,7 +276,6 @@ bool ImageSmoothingMPI::PostProcessingImpl() {
       return false;
     }
   }
-
   return true;
 }
 

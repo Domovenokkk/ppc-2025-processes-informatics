@@ -131,7 +131,6 @@ class RychkovaDRunFuncTestsImageSmoothing : public ppc::util::BaseRunFuncTests<I
     return out;
   }
 
- private:  // FIX 3: только один private
   InType input_data_{};
   OutType expected_{};
 
