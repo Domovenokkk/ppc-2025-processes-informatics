@@ -84,7 +84,6 @@ void ExchangeHalo(const std::vector<std::uint8_t> &local_in, std::size_t local_r
   halo_top->assign(row_size, 0);
   halo_bottom->assign(row_size, 0);
 
-  // Safety: should not happen for rank < size_eff, but avoid UB if it does.
   if (local_rows == 0 || row_size == 0) {
     return;
   }
@@ -241,7 +240,8 @@ bool ImageSmoothingMPI::RunImpl() {
 
   const auto *sendbuf = (rank == 0) ? GetInput().data.data() : nullptr;
 
-  MPI_Scatterv(sendbuf, counts.data(), displs.data(), MPI_UNSIGNED_CHAR, local_size ? local_in.data() : nullptr,
+  const bool has_local = (local_size != 0U);
+  MPI_Scatterv(sendbuf, counts.data(), displs.data(), MPI_UNSIGNED_CHAR, has_local ? local_in.data() : nullptr,
                static_cast<int>(local_size), MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD);
 
   if (rank >= size_eff) {
