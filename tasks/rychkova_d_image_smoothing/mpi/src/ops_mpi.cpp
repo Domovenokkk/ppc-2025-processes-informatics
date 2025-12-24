@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <utility>  // std::cmp_less
+#include <utility>
 #include <vector>
 
 #include "rychkova_d_image_smoothing/common/include/common.hpp"
@@ -83,6 +83,11 @@ void ExchangeHalo(const std::vector<std::uint8_t> &local_in, std::size_t local_r
                   int size_eff, std::vector<std::uint8_t> *halo_top, std::vector<std::uint8_t> *halo_bottom) {
   halo_top->assign(row_size, 0);
   halo_bottom->assign(row_size, 0);
+
+  // Safety: should not happen for rank < size_eff, but avoid UB if it does.
+  if (local_rows == 0 || row_size == 0) {
+    return;
+  }
 
   if (rank == 0) {
     for (std::size_t ii = 0; ii < row_size; ++ii) {
@@ -225,14 +230,19 @@ bool ImageSmoothingMPI::RunImpl() {
   BuildCountsDispls(world_size, size_eff, height, row_size, &counts, &displs);
 
   const std::size_t local_rows = LocalRowsForRank(rank, size_eff, height);
+  const std::size_t local_size = local_rows * row_size;
 
-  std::vector<std::uint8_t> local_in(local_rows * row_size);
+  std::vector<std::uint8_t> local_in;
+  if (local_size > 0) {
+    local_in.resize(local_size);
+  }
+
   std::vector<std::uint8_t> local_out;
 
   const auto *sendbuf = (rank == 0) ? GetInput().data.data() : nullptr;
 
-  MPI_Scatterv(sendbuf, counts.data(), displs.data(), MPI_UNSIGNED_CHAR, local_in.empty() ? nullptr : local_in.data(),
-               static_cast<int>(local_in.size()), MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD);
+  MPI_Scatterv(sendbuf, counts.data(), displs.data(), MPI_UNSIGNED_CHAR, local_size ? local_in.data() : nullptr,
+               static_cast<int>(local_size), MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD);
 
   if (rank >= size_eff) {
     auto *recvbuf = (rank == 0) ? GetOutput().data.data() : nullptr;
