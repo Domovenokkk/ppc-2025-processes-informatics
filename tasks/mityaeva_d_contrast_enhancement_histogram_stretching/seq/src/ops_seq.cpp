@@ -32,7 +32,6 @@ bool ContrastEnhancementSEQ::ValidationImpl() {
   }
 
   total_pixels_ = width_ * height_;
-
   return input.size() == static_cast<size_t>(total_pixels_) + 2;
 }
 
@@ -43,9 +42,9 @@ bool ContrastEnhancementSEQ::PreProcessingImpl() {
   max_pixel_ = 0;
 
   for (size_t i = 2; i < input.size(); ++i) {
-    uint8_t pixel = input[i];
-    min_pixel_ = std::min(pixel, min_pixel_);
-    max_pixel_ = std::max(pixel, max_pixel_);
+    const uint8_t pixel = input[i];
+    min_pixel_ = std::min(min_pixel_, pixel);
+    max_pixel_ = std::max(max_pixel_, pixel);
   }
 
   return true;
@@ -55,6 +54,7 @@ bool ContrastEnhancementSEQ::RunImpl() {
   try {
     const auto &input = GetInput();
     OutType result;
+    result.reserve(static_cast<size_t>(total_pixels_) + 2);
 
     result.push_back(static_cast<uint8_t>(width_));
     result.push_back(static_cast<uint8_t>(height_));
@@ -62,34 +62,21 @@ bool ContrastEnhancementSEQ::RunImpl() {
     if (min_pixel_ == max_pixel_) {
       result.insert(result.end(), input.begin() + 2, input.end());
     } else {
-      double scale = 255.0 / static_cast<double>(max_pixel_ - min_pixel_);
-
-      result.reserve(total_pixels_ + 2);
+      const double scale = 255.0 / static_cast<double>(max_pixel_ - min_pixel_);
 
       for (size_t i = 2; i < input.size(); ++i) {
-        uint8_t pixel = input[i];
+        const uint8_t pixel = input[i];
 
-        double stretched_value = static_cast<double>(pixel - min_pixel_) * scale;
+        const double stretched_value = static_cast<double>(pixel - min_pixel_) * scale;
+        int rounded_value = static_cast<int>(std::lround(stretched_value));
 
-        int rounded_value = static_cast<int>(std::round(stretched_value));
-
-        rounded_value = std::max(rounded_value, 0);
-        rounded_value = std::min(rounded_value, 255);
-
+        rounded_value = std::clamp(rounded_value, 0, 255);
         result.push_back(static_cast<uint8_t>(rounded_value));
       }
     }
 
-    volatile int64_t sum = 0;
-    for (int64_t i = 0; i < 5000000; ++i) {
-      int64_t square = i * i;
-      sum += square;
-    }
-    (void)sum;
-
     GetOutput() = std::move(result);
     return true;
-
   } catch (...) {
     return false;
   }
@@ -102,22 +89,14 @@ bool ContrastEnhancementSEQ::PostProcessingImpl() {
     return false;
   }
 
-  int out_width = static_cast<int>(output[0]);
-  int out_height = static_cast<int>(output[1]);
+  const int out_width = static_cast<int>(output[0]);
+  const int out_height = static_cast<int>(output[1]);
 
   if (out_width != width_ || out_height != height_) {
     return false;
   }
 
-  if (output.size() != static_cast<size_t>(total_pixels_) + 2) {
-    return false;
-  }
-
-  if (output.size() <= 2) {
-    return false;
-  }
-
-  return true;
+  return output.size() == static_cast<size_t>(total_pixels_) + 2;
 }
 
 }  // namespace mityaeva_d_contrast_enhancement_histogram_stretching
