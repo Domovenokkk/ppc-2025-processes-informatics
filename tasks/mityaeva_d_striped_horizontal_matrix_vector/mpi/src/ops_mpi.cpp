@@ -118,8 +118,8 @@ bool StripedHorizontalMatrixVectorMPI::RunImpl() {
     const double *x_all_ptr = input.data() + vector_start;
 
     std::vector<double> local_a(static_cast<size_t>(my_rows) * static_cast<size_t>(cols));
-    std::vector<double> x(static_cast<size_t>(cols));
 
+    std::vector<double> x(static_cast<size_t>(cols), 0.0);
     if (rank == 0) {
       std::copy(x_all_ptr, x_all_ptr + cols, x.begin());
     }
@@ -139,36 +139,16 @@ bool StripedHorizontalMatrixVectorMPI::RunImpl() {
       y_local[static_cast<size_t>(i)] = sum;
     }
 
-    std::vector<double> y;
-    if (rank == 0) {
-      y.resize(static_cast<size_t>(rows));
-    }
+    std::vector<double> y(static_cast<size_t>(rows), 0.0);
+    MPI_Allgatherv(y_local.data(), my_rows, MPI_DOUBLE, y.data(), recvcounts.data(), rdispls.data(), MPI_DOUBLE,
+                   MPI_COMM_WORLD);
 
-    MPI_Gatherv(y_local.data(), my_rows, MPI_DOUBLE, (rank == 0) ? y.data() : nullptr, recvcounts.data(),
-                rdispls.data(), MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    auto &out = GetOutput();
+    out.clear();
+    out.reserve(static_cast<size_t>(rows) + 1);
+    out.push_back(static_cast<double>(rows));
+    out.insert(out.end(), y.begin(), y.end());
 
-    if (rank == 0) {
-      auto &out = GetOutput();
-      out.clear();
-      out.reserve(static_cast<size_t>(rows) + 1);
-      out.push_back(static_cast<double>(rows));
-      out.insert(out.end(), y.begin(), y.end());
-    }
-
-    int out_size = 0;
-    if (rank == 0) {
-      out_size = static_cast<int>(GetOutput().size());
-    }
-
-    MPI_Bcast(&out_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
-    if (rank != 0) {
-      GetOutput().assign(static_cast<size_t>(out_size), 0.0);
-    }
-
-    MPI_Bcast(GetOutput().data(), out_size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-
-    MPI_Barrier(MPI_COMM_WORLD);
     return true;
   } catch (...) {
     return false;
