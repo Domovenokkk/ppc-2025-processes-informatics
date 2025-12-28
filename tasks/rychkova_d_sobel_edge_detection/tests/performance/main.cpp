@@ -13,8 +13,8 @@
 namespace rychkova_d_sobel_edge_detection {
 
 class RychkovaDRunPerfTestsSobel : public ppc::util::BaseRunPerfTests<InType, OutType> {
-  static constexpr std::size_t kW_ = 1024;
-  static constexpr std::size_t kH_ = 1024;
+  static constexpr std::size_t kW_ = 2048;
+  static constexpr std::size_t kH_ = 2048;
   static constexpr std::size_t kCh_ = 1;
 
   InType input_data_{};
