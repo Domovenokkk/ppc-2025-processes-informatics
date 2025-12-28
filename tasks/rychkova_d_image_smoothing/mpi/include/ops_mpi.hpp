@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cstdint>
+#include <vector>
+
 #include "rychkova_d_image_smoothing/common/include/common.hpp"
 #include "task/include/task.hpp"
 
@@ -18,6 +21,8 @@ class ImageSmoothingMPI : public BaseTask {
   bool PreProcessingImpl() override;
   bool RunImpl() override;
   bool PostProcessingImpl() override;
+
+  std::vector<uint8_t> gray_;
 };
 
 }  // namespace rychkova_d_image_smoothing

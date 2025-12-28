@@ -11,20 +11,21 @@
 namespace rychkova_d_image_smoothing {
 
 class RychkovaDRunPerfTestsImageSmoothing : public ppc::util::BaseRunPerfTests<InType, OutType> {
+ protected:
+  static constexpr std::size_t kWidth = 1024;
+  static constexpr std::size_t kHeight = 768;
+  static constexpr std::size_t kChannels = 3;
+
   InType input_data_{};
 
   void SetUp() override {
-    const std::size_t w = 1024;
-    const std::size_t h = 768;
-    const std::size_t ch = 3;
+    input_data_.width = kWidth;
+    input_data_.height = kHeight;
+    input_data_.channels = kChannels;
+    input_data_.data.resize(kWidth * kHeight * kChannels);
 
-    input_data_.width = w;
-    input_data_.height = h;
-    input_data_.channels = ch;
-    input_data_.data.resize(w * h * ch);
-
-    for (std::size_t i = 0; i < input_data_.data.size(); ++i) {
-      input_data_.data[i] = static_cast<std::uint8_t>((i * 37 + 13) % 256);
+    for (std::size_t idx = 0; idx < input_data_.data.size(); ++idx) {
+      input_data_.data[idx] = static_cast<std::uint8_t>(((idx * 37U) + 13U) % 256U);
     }
   }
 

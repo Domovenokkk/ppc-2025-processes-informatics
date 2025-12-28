@@ -8,8 +8,6 @@
 #include <utility>
 #include <vector>
 
-#include "rychkova_d_image_smoothing/common/include/common.hpp"
-
 namespace rychkova_d_image_smoothing {
 
 namespace {
@@ -21,6 +19,7 @@ void BroadcastMeta(std::size_t *width, std::size_t *height, std::size_t *channel
 
   int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
   if (rank == 0) {
     w64 = static_cast<std::uint64_t>(*width);
     h64 = static_cast<std::uint64_t>(*height);
@@ -67,7 +66,7 @@ void BuildCountsDispls(int world_size, int size_eff, std::size_t height, std::si
 }
 
 std::size_t LocalRowsForRank(int rank, int size_eff, std::size_t height) {
-  if (rank >= size_eff || size_eff <= 0) {
+  if (size_eff <= 0 || rank >= size_eff) {
     return 0;
   }
 
@@ -75,7 +74,6 @@ std::size_t LocalRowsForRank(int rank, int size_eff, std::size_t height) {
   const std::size_t rem = height % static_cast<std::size_t>(size_eff);
   const auto rank_sz = static_cast<std::size_t>(rank);
   const std::size_t extra = std::cmp_less(rank_sz, rem) ? 1U : 0U;
-
   return base + extra;
 }
 
@@ -98,7 +96,7 @@ void ExchangeHalo(const std::vector<std::uint8_t> &local_in, std::size_t local_r
   }
 
   const std::size_t last_off = (local_rows - 1U) * row_size;
-  if (rank == size_eff - 1) {
+  if (rank == (size_eff - 1)) {
     for (std::size_t ii = 0; ii < row_size; ++ii) {
       (*halo_bottom)[ii] = local_in[last_off + ii];
     }
@@ -109,23 +107,22 @@ void ExchangeHalo(const std::vector<std::uint8_t> &local_in, std::size_t local_r
   }
 }
 
-inline const std::uint8_t *SelectRowPtr(const std::vector<std::uint8_t> &local_in,
-                                        const std::vector<std::uint8_t> &halo_top,
-                                        const std::vector<std::uint8_t> &halo_bottom, std::size_t local_y,
-                                        std::size_t local_rows, std::size_t row_size, int dy) {
+const std::uint8_t *SelectRowPtr(const std::vector<std::uint8_t> &local_in, const std::vector<std::uint8_t> &halo_top,
+                                 const std::vector<std::uint8_t> &halo_bottom, std::size_t local_y,
+                                 std::size_t local_rows, std::size_t row_size, int dy) {
   if (dy == -1) {
     return (local_y == 0U) ? halo_top.data() : (local_in.data() + ((local_y - 1U) * row_size));
   }
   if (dy == 0) {
     return local_in.data() + (local_y * row_size);
   }
-  return (local_y + 1U == local_rows) ? halo_bottom.data() : (local_in.data() + ((local_y + 1U) * row_size));
+  return ((local_y + 1U) == local_rows) ? halo_bottom.data() : (local_in.data() + ((local_y + 1U) * row_size));
 }
 
-inline std::uint8_t SmoothPixel(const std::vector<std::uint8_t> &local_in, const std::vector<std::uint8_t> &halo_top,
-                                const std::vector<std::uint8_t> &halo_bottom, std::size_t local_y, std::size_t x_pos,
-                                std::size_t ch_pos, std::size_t width, std::size_t channels, std::size_t row_size,
-                                std::size_t local_rows) {
+std::uint8_t SmoothPixel(const std::vector<std::uint8_t> &local_in, const std::vector<std::uint8_t> &halo_top,
+                         const std::vector<std::uint8_t> &halo_bottom, std::size_t local_y, std::size_t x_pos,
+                         std::size_t ch_pos, std::size_t width, std::size_t channels, std::size_t row_size,
+                         std::size_t local_rows) {
   int sum = 0;
 
   for (int dy = -1; dy <= 1; ++dy) {
@@ -147,15 +144,73 @@ void SmoothLocal(const std::vector<std::uint8_t> &local_in, std::size_t local_ro
                  const std::vector<std::uint8_t> &halo_bottom, std::vector<std::uint8_t> *local_out) {
   local_out->assign(local_rows * row_size, 0);
 
-  for (std::size_t ly = 0; ly < local_rows; ++ly) {
+  for (std::size_t yy = 0; yy < local_rows; ++yy) {
     for (std::size_t xx = 0; xx < width; ++xx) {
       for (std::size_t cc = 0; cc < channels; ++cc) {
-        const auto out_idx = (((ly * width) + xx) * channels) + cc;
+        const auto out_idx = (((yy * width) + xx) * channels) + cc;
         (*local_out)[out_idx] =
-            SmoothPixel(local_in, halo_top, halo_bottom, ly, xx, cc, width, channels, row_size, local_rows);
+            SmoothPixel(local_in, halo_top, halo_bottom, yy, xx, cc, width, channels, row_size, local_rows);
       }
     }
   }
+}
+
+struct MpiEnv {
+  int rank = 0;
+  int world_size = 1;
+};
+
+MpiEnv GetMpiEnv() {
+  MpiEnv env{};
+  MPI_Comm_rank(MPI_COMM_WORLD, &env.rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &env.world_size);
+  return env;
+}
+
+bool ReadAndBroadcastMeta(const MpiEnv &env, const InType &in, std::size_t *width, std::size_t *height,
+                          std::size_t *channels) {
+  if (env.rank == 0) {
+    *width = in.width;
+    *height = in.height;
+    *channels = in.channels;
+  } else {
+    *width = 0;
+    *height = 0;
+    *channels = 0;
+  }
+
+  BroadcastMeta(width, height, channels);
+
+  if (*width == 0 || *height == 0) {
+    return false;
+  }
+  if (*channels != 1 && *channels != 3) {
+    return false;
+  }
+  return true;
+}
+
+void ScatterLocal(const MpiEnv &env, const std::vector<int> &counts, const std::vector<int> &displs,
+                  const std::vector<std::uint8_t> *in_data, std::vector<std::uint8_t> *local_in) {
+  const auto *sendbuf = (env.rank == 0 && in_data != nullptr) ? in_data->data() : nullptr;
+  const bool has_local = !local_in->empty();
+
+  MPI_Scatterv(sendbuf, counts.data(), displs.data(), MPI_UNSIGNED_CHAR, has_local ? local_in->data() : nullptr,
+               static_cast<int>(local_in->size()), MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD);
+}
+
+void GatherEmptyForIdleRanks(const MpiEnv &env, const std::vector<int> &counts, const std::vector<int> &displs,
+                             std::vector<std::uint8_t> *out_data) {
+  auto *recvbuf = (env.rank == 0 && out_data != nullptr) ? out_data->data() : nullptr;
+  MPI_Gatherv(nullptr, 0, MPI_UNSIGNED_CHAR, recvbuf, counts.data(), displs.data(), MPI_UNSIGNED_CHAR, 0,
+              MPI_COMM_WORLD);
+}
+
+void GatherLocalOut(const MpiEnv &env, const std::vector<int> &counts, const std::vector<int> &displs,
+                    const std::vector<std::uint8_t> &local_out, std::vector<std::uint8_t> *out_data) {
+  auto *recvbuf = (env.rank == 0 && out_data != nullptr) ? out_data->data() : nullptr;
+  MPI_Gatherv(local_out.data(), static_cast<int>(local_out.size()), MPI_UNSIGNED_CHAR, recvbuf, counts.data(),
+              displs.data(), MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD);
 }
 
 }  // namespace
@@ -180,7 +235,7 @@ bool ImageSmoothingMPI::ValidationImpl() {
   if (in.channels != 1 && in.channels != 3) {
     return false;
   }
-  return in.data.size() == in.width * in.height * in.channels;
+  return in.data.size() == (in.width * in.height * in.channels);
 }
 
 bool ImageSmoothingMPI::PreProcessingImpl() {
@@ -201,66 +256,43 @@ bool ImageSmoothingMPI::PreProcessingImpl() {
 }
 
 bool ImageSmoothingMPI::RunImpl() {
-  int rank = 0;
-  int world_size = 1;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+  const auto env = GetMpiEnv();
 
   std::size_t width = 0;
   std::size_t height = 0;
   std::size_t channels = 0;
 
-  if (rank == 0) {
-    width = GetInput().width;
-    height = GetInput().height;
-    channels = GetInput().channels;
-  }
-
-  BroadcastMeta(&width, &height, &channels);
-  if (width == 0 || height == 0 || (channels != 1 && channels != 3)) {
+  if (!ReadAndBroadcastMeta(env, GetInput(), &width, &height, &channels)) {
     return false;
   }
 
   const std::size_t row_size = width * channels;
-  const int size_eff = EffectiveSize(world_size, height);
+  const int size_eff = EffectiveSize(env.world_size, height);
 
   std::vector<int> counts;
   std::vector<int> displs;
-  BuildCountsDispls(world_size, size_eff, height, row_size, &counts, &displs);
+  BuildCountsDispls(env.world_size, size_eff, height, row_size, &counts, &displs);
 
-  const std::size_t local_rows = LocalRowsForRank(rank, size_eff, height);
+  const std::size_t local_rows = LocalRowsForRank(env.rank, size_eff, height);
   const std::size_t local_size = local_rows * row_size;
 
-  std::vector<std::uint8_t> local_in;
-  if (local_size > 0) {
-    local_in.resize(local_size);
-  }
+  std::vector<std::uint8_t> local_in(local_size, 0);
+  ScatterLocal(env, counts, displs, (env.rank == 0) ? &GetInput().data : nullptr, &local_in);
 
-  std::vector<std::uint8_t> local_out;
-
-  const auto *sendbuf = (rank == 0) ? GetInput().data.data() : nullptr;
-
-  const bool has_local = (local_size != 0U);
-  MPI_Scatterv(sendbuf, counts.data(), displs.data(), MPI_UNSIGNED_CHAR, has_local ? local_in.data() : nullptr,
-               static_cast<int>(local_size), MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD);
-
-  if (rank >= size_eff) {
-    auto *recvbuf = (rank == 0) ? GetOutput().data.data() : nullptr;
-    MPI_Gatherv(nullptr, 0, MPI_UNSIGNED_CHAR, recvbuf, counts.data(), displs.data(), MPI_UNSIGNED_CHAR, 0,
-                MPI_COMM_WORLD);
+  if (env.rank >= size_eff) {
+    GatherEmptyForIdleRanks(env, counts, displs, (env.rank == 0) ? &GetOutput().data : nullptr);
     MPI_Barrier(MPI_COMM_WORLD);
     return true;
   }
 
   std::vector<std::uint8_t> halo_top;
   std::vector<std::uint8_t> halo_bottom;
-  ExchangeHalo(local_in, local_rows, row_size, rank, size_eff, &halo_top, &halo_bottom);
+  ExchangeHalo(local_in, local_rows, row_size, env.rank, size_eff, &halo_top, &halo_bottom);
 
+  std::vector<std::uint8_t> local_out;
   SmoothLocal(local_in, local_rows, width, channels, row_size, halo_top, halo_bottom, &local_out);
 
-  auto *recvbuf = (rank == 0) ? GetOutput().data.data() : nullptr;
-  MPI_Gatherv(local_out.data(), static_cast<int>(local_out.size()), MPI_UNSIGNED_CHAR, recvbuf, counts.data(),
-              displs.data(), MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD);
+  GatherLocalOut(env, counts, displs, local_out, (env.rank == 0) ? &GetOutput().data : nullptr);
 
   MPI_Barrier(MPI_COMM_WORLD);
   return true;

@@ -5,7 +5,6 @@
 #include <cstdint>
 #include <string>
 #include <tuple>
-#include <vector>
 
 #include "rychkova_d_image_smoothing/common/include/common.hpp"
 #include "rychkova_d_image_smoothing/mpi/include/ops_mpi.hpp"
@@ -56,27 +55,27 @@ class RychkovaDRunFuncTestsImageSmoothing : public ppc::util::BaseRunFuncTests<I
   }
 
  private:
-  static Image MakeConst(std::size_t w, std::size_t h, std::size_t ch, std::uint8_t v) {
+  static Image MakeConst(std::size_t width, std::size_t height, std::size_t channels, std::uint8_t value) {
     Image img;
-    img.width = w;
-    img.height = h;
-    img.channels = ch;
-    img.data.assign(w * h * ch, v);
+    img.width = width;
+    img.height = height;
+    img.channels = channels;
+    img.data.assign(width * height * channels, value);
     return img;
   }
 
-  static Image MakePattern(std::size_t w, std::size_t h, std::size_t ch) {
+  static Image MakePattern(std::size_t width, std::size_t height, std::size_t channels) {
     Image img;
-    img.width = w;
-    img.height = h;
-    img.channels = ch;
-    img.data.resize(w * h * ch);
+    img.width = width;
+    img.height = height;
+    img.channels = channels;
+    img.data.resize(width * height * channels);
 
-    for (std::size_t yy = 0; yy < h; ++yy) {
-      for (std::size_t xx = 0; xx < w; ++xx) {
-        for (std::size_t cc = 0; cc < ch; ++cc) {
-          const auto idx = (((yy * w) + xx) * ch) + cc;  // FIX 2
-          img.data[idx] = static_cast<std::uint8_t>((idx * 37 + 13) % 256);
+    for (std::size_t yy = 0; yy < height; ++yy) {
+      for (std::size_t xx = 0; xx < width; ++xx) {
+        for (std::size_t cc = 0; cc < channels; ++cc) {
+          const auto idx = (((yy * width) + xx) * channels) + cc;
+          img.data[idx] = static_cast<std::uint8_t>((((idx * 37U) + 13U) % 256U));
         }
       }
     }
@@ -90,44 +89,45 @@ class RychkovaDRunFuncTestsImageSmoothing : public ppc::util::BaseRunFuncTests<I
     out.channels = in.channels;
     out.data.assign(in.data.size(), 0);
 
-    const std::size_t w = in.width;
-    const std::size_t h = in.height;
-    const std::size_t ch = in.channels;
+    const std::size_t width = in.width;
+    const std::size_t height = in.height;
+    const std::size_t channels = in.channels;
 
-    auto clamp_i64 = [](std::int64_t v, std::int64_t lo, std::int64_t hi) {
-      if (v < lo) {
+    auto clamp_i64 = [](std::int64_t value, std::int64_t lo, std::int64_t hi) {
+      if (value < lo) {
         return lo;
       }
-      if (v > hi) {
+      if (value > hi) {
         return hi;
       }
-      return v;
+      return value;
     };
 
-    for (std::size_t yy = 0; yy < h; ++yy) {
-      for (std::size_t xx = 0; xx < w; ++xx) {
-        for (std::size_t cc = 0; cc < ch; ++cc) {
+    for (std::size_t yy = 0; yy < height; ++yy) {
+      for (std::size_t xx = 0; xx < width; ++xx) {
+        for (std::size_t cc = 0; cc < channels; ++cc) {
           int sum = 0;
 
           for (int dy = -1; dy <= 1; ++dy) {
-            const auto ny = clamp_i64(static_cast<std::int64_t>(yy) + dy, 0, static_cast<std::int64_t>(h) - 1);
+            const auto ny = clamp_i64(static_cast<std::int64_t>(yy) + dy, 0, static_cast<std::int64_t>(height) - 1);
 
             for (int dx = -1; dx <= 1; ++dx) {
-              const auto nx = clamp_i64(static_cast<std::int64_t>(xx) + dx, 0, static_cast<std::int64_t>(w) - 1);
+              const auto nx = clamp_i64(static_cast<std::int64_t>(xx) + dx, 0, static_cast<std::int64_t>(width) - 1);
 
               const auto ix = static_cast<std::size_t>(nx);
               const auto iy = static_cast<std::size_t>(ny);
-              const auto idx = (((iy * w) + ix) * ch) + cc;  // FIX 2
+              const auto idx = (((iy * width) + ix) * channels) + cc;
 
               sum += static_cast<int>(in.data[idx]);
             }
           }
 
-          const auto out_idx = (((yy * w) + xx) * ch) + cc;  // FIX 2
+          const auto out_idx = (((yy * width) + xx) * channels) + cc;
           out.data[out_idx] = static_cast<std::uint8_t>(sum / 9);
         }
       }
     }
+
     return out;
   }
 
@@ -135,12 +135,13 @@ class RychkovaDRunFuncTestsImageSmoothing : public ppc::util::BaseRunFuncTests<I
   OutType expected_{};
 
  public:
-  static TestType ParamConst(std::size_t w, std::size_t h, std::size_t ch, std::uint8_t v, const std::string &name) {
-    return std::make_tuple(MakeConst(w, h, ch, v), name);
+  static TestType ParamConst(std::size_t width, std::size_t height, std::size_t channels, std::uint8_t value,
+                             const std::string &name) {
+    return std::make_tuple(MakeConst(width, height, channels, value), name);
   }
 
-  static TestType ParamPattern(std::size_t w, std::size_t h, std::size_t ch, const std::string &name) {
-    return std::make_tuple(MakePattern(w, h, ch), name);
+  static TestType ParamPattern(std::size_t width, std::size_t height, std::size_t channels, const std::string &name) {
+    return std::make_tuple(MakePattern(width, height, channels), name);
   }
 };
 
