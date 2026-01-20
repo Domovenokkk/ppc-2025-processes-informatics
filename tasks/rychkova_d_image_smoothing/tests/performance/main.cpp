@@ -19,7 +19,7 @@ class RychkovaDRunPerfTestsImageSmoothing : public ppc::util::BaseRunPerfTests<I
   InType input_data{};
 
   void SetUp() override {
-    input_data_.width = kWidth;
+    input_data.width = kWidth;
     input_data.height = kHeight;
     input_data.channels = kChannels;
     input_data.data.resize(kWidth * kHeight * kChannels);
