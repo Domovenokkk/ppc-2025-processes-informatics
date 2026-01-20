@@ -13,18 +13,18 @@
 namespace rychkova_d_sobel_edge_detection {
 
 class RychkovaDRunPerfTestsSobel : public ppc::util::BaseRunPerfTests<InType, OutType> {
-  static constexpr std::size_t kW_ = 1024;
-  static constexpr std::size_t kH_ = 1024;
-  static constexpr std::size_t kCh_ = 1;
+  static constexpr std::size_t kW = 2048;
+  static constexpr std::size_t kH = 2048;
+  static constexpr std::size_t kCh = 1;
 
   InType input_data_{};
 
  protected:
   void SetUp() override {
-    input_data_.width = kW_;
-    input_data_.height = kH_;
-    input_data_.channels = kCh_;
-    input_data_.data.resize(kW_ * kH_ * kCh_);
+    input_data_.width = kW;
+    input_data_.height = kH;
+    input_data_.channels = kCh;
+    input_data_.data.resize(kW * kH * kCh);
 
     for (std::size_t i = 0; i < input_data_.data.size(); ++i) {
       input_data_.data[i] = static_cast<std::uint8_t>((i * 37 + 13) % 256);
