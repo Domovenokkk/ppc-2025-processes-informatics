@@ -16,16 +16,16 @@ class RychkovaDRunPerfTestsImageSmoothing : public ppc::util::BaseRunPerfTests<I
   static constexpr std::size_t kHeight = 768;
   static constexpr std::size_t kChannels = 3;
 
-  InType input_data_{};
+  InType input_data{};
 
   void SetUp() override {
     input_data_.width = kWidth;
-    input_data_.height = kHeight;
-    input_data_.channels = kChannels;
-    input_data_.data.resize(kWidth * kHeight * kChannels);
+    input_data.height = kHeight;
+    input_data.channels = kChannels;
+    input_data.data.resize(kWidth * kHeight * kChannels);
 
-    for (std::size_t idx = 0; idx < input_data_.data.size(); ++idx) {
-      input_data_.data[idx] = static_cast<std::uint8_t>(((idx * 37U) + 13U) % 256U);
+    for (std::size_t idx = 0; idx < input_data.data.size(); ++idx) {
+      input_data.data[idx] = static_cast<std::uint8_t>(((idx * 37U) + 13U) % 256U);
     }
   }
 
@@ -34,16 +34,16 @@ class RychkovaDRunPerfTestsImageSmoothing : public ppc::util::BaseRunPerfTests<I
       return true;
     }
 
-    if (output_data.width != input_data_.width) {
+    if (output_data.width != input_data.width) {
       return false;
     }
-    if (output_data.height != input_data_.height) {
+    if (output_data.height != input_data.height) {
       return false;
     }
-    if (output_data.channels != input_data_.channels) {
+    if (output_data.channels != input_data.channels) {
       return false;
     }
-    if (output_data.data.size() != input_data_.data.size()) {
+    if (output_data.data.size() != input_data.data.size()) {
       return false;
     }
 
@@ -51,7 +51,7 @@ class RychkovaDRunPerfTestsImageSmoothing : public ppc::util::BaseRunPerfTests<I
   }
 
   InType GetTestInputData() final {
-    return input_data_;
+    return input_data;
   }
 };
 

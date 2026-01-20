@@ -8,6 +8,8 @@
 #include <utility>
 #include <vector>
 
+#include "rychkova_d_image_smoothing/common/include/common.hpp"
+
 namespace rychkova_d_image_smoothing {
 
 namespace {

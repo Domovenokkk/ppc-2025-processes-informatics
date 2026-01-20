@@ -1,8 +1,5 @@
 #pragma once
 
-#include <cstdint>
-#include <vector>
-
 #include "rychkova_d_image_smoothing/common/include/common.hpp"
 #include "task/include/task.hpp"
 
