@@ -26,8 +26,8 @@ class RychkovaDRunPerfTestsSobel : public ppc::util::BaseRunPerfTests<InType, Ou
     input_data_.channels = kCh;
     input_data_.data.resize(kW * kH * kCh);
 
-    for (std::size_t i = 0; i < input_data_.data.size(); ++i) {
-      input_data_.data[i] = static_cast<std::uint8_t>((i * 37 + 13) % 256);
+    for (std::size_t idx = 0; idx < input_data_.data.size(); ++idx) {
+      input_data_.data[idx] = static_cast<std::uint8_t>((idx * 37 + 13) % 256);
     }
   }
 
@@ -35,11 +35,12 @@ class RychkovaDRunPerfTestsSobel : public ppc::util::BaseRunPerfTests<InType, Ou
     int rank = 0;
     int mpi_inited = 0;
     MPI_Initialized(&mpi_inited);
-    if (mpi_inited) {
+
+    if (mpi_inited != 0) {
       MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     }
 
-    if (mpi_inited && rank != 0) {
+    if ((mpi_inited != 0) && (rank != 0)) {
       return true;
     }
 

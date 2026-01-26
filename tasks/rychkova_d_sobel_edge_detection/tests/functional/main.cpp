@@ -1,11 +1,12 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <string>
 #include <tuple>
-#include <utility>
 #include <vector>
 
 #include "rychkova_d_sobel_edge_detection/common/include/common.hpp"
@@ -96,12 +97,13 @@ class RychkovaDRunFuncTestsSobel : public ppc::util::BaseRunFuncTests<InType, Ou
     g.data.assign(in.width * in.height, 0);
 
     const std::size_t pixels = in.width * in.height;
-    for (std::size_t i = 0; i < pixels; ++i) {
-      const std::uint8_t r = in.data[i * 3 + 0];
-      const std::uint8_t gg = in.data[i * 3 + 1];
-      const std::uint8_t b = in.data[i * 3 + 2];
+    for (std::size_t idx_px = 0; idx_px < pixels; ++idx_px) {
+      const std::size_t base = (idx_px * 3U);
+      const std::uint8_t r = in.data[base + 0U];
+      const std::uint8_t gg = in.data[base + 1U];
+      const std::uint8_t b = in.data[base + 2U];
       const int y = (77 * r + 150 * gg + 29 * b) >> 8;
-      g.data[i] = static_cast<std::uint8_t>(y);
+      g.data[idx_px] = static_cast<std::uint8_t>(y);
     }
     return g;
   }
@@ -122,20 +124,20 @@ class RychkovaDRunFuncTestsSobel : public ppc::util::BaseRunFuncTests<InType, Ou
       return out;
     }
 
-    auto idx = [w](std::size_t x, std::size_t y) { return y * w + x; };
+    auto idx = [w](std::size_t col, std::size_t row) { return (row * w) + col; };
 
-    for (std::size_t y = 1; y + 1 < h; ++y) {
-      for (std::size_t x = 1; x + 1 < w; ++x) {
-        const int p00 = static_cast<int>(in.data[idx(x - 1, y - 1)]);
-        const int p10 = static_cast<int>(in.data[idx(x, y - 1)]);
-        const int p20 = static_cast<int>(in.data[idx(x + 1, y - 1)]);
+    for (std::size_t row = 1; (row + 1U) < h; ++row) {
+      for (std::size_t col = 1; (col + 1U) < w; ++col) {
+        const int p00 = static_cast<int>(in.data[idx(col - 1U, row - 1U)]);
+        const int p10 = static_cast<int>(in.data[idx(col, row - 1U)]);
+        const int p20 = static_cast<int>(in.data[idx(col + 1U, row - 1U)]);
 
-        const int p01 = static_cast<int>(in.data[idx(x - 1, y)]);
-        const int p21 = static_cast<int>(in.data[idx(x + 1, y)]);
+        const int p01 = static_cast<int>(in.data[idx(col - 1U, row)]);
+        const int p21 = static_cast<int>(in.data[idx(col + 1U, row)]);
 
-        const int p02 = static_cast<int>(in.data[idx(x - 1, y + 1)]);
-        const int p12 = static_cast<int>(in.data[idx(x, y + 1)]);
-        const int p22 = static_cast<int>(in.data[idx(x + 1, y + 1)]);
+        const int p02 = static_cast<int>(in.data[idx(col - 1U, row + 1U)]);
+        const int p12 = static_cast<int>(in.data[idx(col, row + 1U)]);
+        const int p22 = static_cast<int>(in.data[idx(col + 1U, row + 1U)]);
 
         const int gx = (-p00 + p20) + (-2 * p01 + 2 * p21) + (-p02 + p22);
         const int gy = (-p00 - 2 * p10 - p20) + (p02 + 2 * p12 + p22);
@@ -143,14 +145,10 @@ class RychkovaDRunFuncTestsSobel : public ppc::util::BaseRunFuncTests<InType, Ou
         int mag = std::abs(gx) + std::abs(gy);
         mag /= 4;
 
-        if (mag < 0) {
-          mag = 0;
-        }
-        if (mag > 255) {
-          mag = 255;
-        }
+        mag = std::max(mag, 0);
+        mag = std::min(mag, 255);
 
-        out.data[idx(x, y)] = static_cast<std::uint8_t>(mag);
+        out.data[idx(col, row)] = static_cast<std::uint8_t>(mag);
       }
     }
 

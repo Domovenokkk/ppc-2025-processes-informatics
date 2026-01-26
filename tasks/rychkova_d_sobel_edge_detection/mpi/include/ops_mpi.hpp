@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cstdint>
+#include <vector>
+
 #include "rychkova_d_sobel_edge_detection/common/include/common.hpp"
 #include "task/include/task.hpp"
 
