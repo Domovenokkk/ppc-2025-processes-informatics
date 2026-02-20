@@ -5,8 +5,8 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <iterator>
-#include <ranges>
+#include <cstdlib>
+#include <span>
 #include <utility>
 #include <vector>
 
